@@ -1,34 +1,40 @@
 require("dotenv").config();
-const express = require("express");
-const cors = require("cors");
-const bodyParser = require("body-parser");
-const { Configuration, OpenAIApi } = require("openai");
+const { WebSocketServer } = require("ws");
+const PORT = process.env.PORT || 3001;
+const sockserver = new WebSocketServer({ port: PORT });
+const { OpenAIClient } = require("@fern-api/openai");
 
-const configuration = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY,
+const client = new OpenAIClient({
+  token: process.env.OPENAI_API_KEY,
 });
-const openai = new OpenAIApi(configuration);
 
-const app = express();
+console.log(`Server started on port ${PORT} :)`);
 
-app.use(cors());
-app.use(bodyParser.json());
+sockserver.on("connection", (ws) => {
+  console.log("New client connected!");
+  ws.on("close", () => console.log("Client has disconnected!"));
+  ws.on("message", (data) => reply(JSON.parse(data.toString()), ws));
+  ws.onerror = () => console.log("websocket error");
+});
 
-app.post("/chat", async (req, res) => {
-  const chatMessages = req.body;
-
-  try {
-    const response = await openai.createChatCompletion({
+async function reply(chatMessages, ws) {
+  await client.chat.createCompletion(
+    {
       model: "gpt-3.5-turbo",
       messages: chatMessages,
-      temperature: 0,
-    });
-    res.send({ reply: response.data.choices[0].message.content });
-  } catch (error) {
-    console.log(error);
-    res.status(500).send({ error: error.message });
-  }
-});
-
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+      stream: true,
+    },
+    (data) => {
+      const textChunk = data.choices[0].delta.content;
+      if (textChunk) ws.send(textChunk);
+    },
+    {
+      onError: (error) => {
+        console.log("Received error", error);
+      },
+      onFinish: () => {
+        console.log("Finished!");
+      },
+    }
+  );
+}

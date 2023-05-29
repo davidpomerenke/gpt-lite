@@ -1,17 +1,15 @@
-module Main exposing (..)
+port module Main exposing (..)
 
 import Browser exposing (Document)
-import Browser.Events as BEvents
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
-import Element.Events as Events
 import Element.Input as Input
-import Http
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Keyboard exposing (Key(..))
 import Keyboard.Events as Keyboard
+import List
 
 
 type alias Model =
@@ -32,7 +30,7 @@ init =
 type Msg
     = Send
     | Update String
-    | GotResponse (Result Http.Error String)
+    | GotResponseChunk String
 
 
 type Role
@@ -80,21 +78,13 @@ update msg model =
             if model.currentMessage /= "" then
                 let
                     newMessages =
-                        model.messages ++ [ { role = User, content = model.currentMessage } ]
-
-                    cmd =
-                        Http.post
-                            { url = "http://localhost:3001/chat"
-                            , body = Http.jsonBody (encodeChatMessages newMessages)
-                            , expect = Http.expectJson GotResponse <| Decode.field "reply" Decode.string
-                            }
+                        { role = User, content = model.currentMessage } :: model.messages
                 in
                 ( { model
                     | currentMessage = ""
                     , messages = newMessages
-                    , error = Nothing
                   }
-                , cmd
+                , outgoingMessage (encodeChatMessages (List.reverse newMessages))
                 )
 
             else
@@ -103,22 +93,30 @@ update msg model =
         Update newMessage ->
             ( { model | currentMessage = newMessage }, Cmd.none )
 
-        GotResponse result ->
-            case result of
-                Ok reply ->
-                    ( { model
-                        | messages = model.messages ++ [ { role = Assistant, content = reply } ]
-                        , error = Nothing
-                      }
-                    , Cmd.none
-                    )
+        GotResponseChunk chunk ->
+            let
+                messages =
+                    case model.messages of
+                        lastMessage :: rest ->
+                            if lastMessage.role == Assistant then
+                                { lastMessage | content = lastMessage.content ++ chunk } :: rest
 
-                Err httpError ->
-                    ( { model
-                        | error = Just <| Debug.toString httpError
-                      }
-                    , Cmd.none
-                    )
+                            else
+                                { role = Assistant, content = chunk } :: model.messages
+
+                        [] ->
+                            [ { role = Assistant, content = chunk } ]
+            in
+            ( { model | messages = messages }, Cmd.none )
+
+
+
+-- Err httpError ->
+--     ( { model
+--         | error = Just <| Debug.toString httpError
+--       }
+--     , Cmd.none
+--     )
 
 
 view : Model -> Element Msg
@@ -141,7 +139,7 @@ view model =
                         ]
                         [ text message.content ]
                 )
-                model.messages
+                (List.reverse model.messages)
             )
         , if model.error /= Nothing then
             el
@@ -150,7 +148,7 @@ view model =
                 , padding 10
                 , centerX
                 ]
-                (text <| Maybe.withDefault "" model.error)
+                (text (Maybe.withDefault "" model.error))
 
           else
             none
@@ -163,15 +161,22 @@ view model =
         ]
 
 
+port incomingMessage : (String -> msg) -> Sub msg
+
+
+port outgoingMessage : Encode.Value -> Cmd msg
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    incomingMessage GotResponseChunk
+
+
 main : Program () Model Msg
 main =
-    Browser.document
+    Browser.element
         { init = \_ -> ( init, Cmd.none )
-        , view =
-            \model ->
-                { title = "GPT++"
-                , body = [ Element.layout [ padding 10 ] (view model) ]
-                }
+        , view = \model -> Element.layout [ padding 10 ] (view model)
         , update = \msg model -> update msg model
-        , subscriptions = \_ -> Sub.none
+        , subscriptions = subscriptions
         }

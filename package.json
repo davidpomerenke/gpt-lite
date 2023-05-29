@@ -5,17 +5,16 @@
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "server": "node server.js",
-    "start": "elm-live src/Main.elm -- --output=build/index.html"
+    "server": "nodemon server.js",
+    "client": "elm-live src/Main.elm -- --output=build/elm.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "body-parser": "^1.20.2",
-    "cors": "^2.8.5",
+    "@fern-api/openai": "^0.0.32",
     "dotenv": "^16.0.3",
     "elm-live": "^4.0.2",
-    "express": "^4.18.2",
-    "openai": "^3.2.1"
+    "nodemon": "^2.0.22",
+    "ws": "^8.13.0"
   }
 }
