@@ -1,14 +1,16 @@
 require("dotenv").config();
 const { WebSocketServer } = require("ws");
-const PORT = process.env.PORT || 3001;
-const sockserver = new WebSocketServer({ port: PORT });
+
 const { OpenAIClient } = require("@fern-api/openai");
 
 const client = new OpenAIClient({
   token: process.env.OPENAI_API_KEY,
 });
 
-console.log(`Server started on port ${PORT} :)`);
+const PORT = process.env.PORT || 3001;
+const sockserver = new WebSocketServer({ port: PORT });
+
+console.log(`Websocket server started on port ${PORT}`);
 
 sockserver.on("connection", (ws) => {
   console.log("New client connected!");
@@ -20,7 +22,7 @@ sockserver.on("connection", (ws) => {
 async function reply(chatMessages, ws) {
   await client.chat.createCompletion(
     {
-      model: "gpt-3.5-turbo",
+      model: "gpt-4",
       messages: chatMessages,
       stream: true,
     },

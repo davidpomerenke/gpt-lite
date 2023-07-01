@@ -1,88 +1,69 @@
 port module Main exposing (..)
 
-import Browser exposing (Document)
+import Browser
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
+import Element.Font as Font
 import Element.Input as Input
-import Json.Decode as Decode
 import Json.Encode as Encode
 import Keyboard exposing (Key(..))
 import Keyboard.Events as Keyboard
 import List
+import Types exposing (..)
+
+
+main : Program () Model Msg
+main =
+    Browser.element
+        { init = \_ -> ( init, Cmd.none )
+        , view = \model -> Element.layout [ padding 10 ] (view model)
+        , update = \msg model -> update msg model
+        , subscriptions = subscriptions
+        }
+
+
+
+-- MODEL
 
 
 type alias Model =
-    { messages : List ChatMessage
-    , currentMessage : String
+    { messageHistory : List ChatMessage
+    , messageDraft : String
     , error : Maybe String
     }
 
 
 init : Model
 init =
-    { messages = []
-    , currentMessage = ""
+    { messageHistory = []
+    , messageDraft = ""
     , error = Nothing
     }
 
 
 type Msg
-    = Send
-    | Update String
-    | GotResponseChunk String
+    = MessageSent
+    | MessageTyped String
+    | ReceivedResponseChunk String
 
 
-type Role
-    = System
-    | User
-    | Assistant
 
-
-type alias ChatMessage =
-    { role : Role
-    , content : String
-    }
-
-
-encodeRole : Role -> Encode.Value
-encodeRole role =
-    case role of
-        System ->
-            Encode.string "system"
-
-        User ->
-            Encode.string "user"
-
-        Assistant ->
-            Encode.string "assistant"
-
-
-encodeChatMessage : ChatMessage -> Encode.Value
-encodeChatMessage message =
-    Encode.object
-        [ ( "role", encodeRole message.role )
-        , ( "content", Encode.string message.content )
-        ]
-
-
-encodeChatMessages : List ChatMessage -> Encode.Value
-encodeChatMessages messages =
-    Encode.list encodeChatMessage messages
+-- UPDATE
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        Send ->
-            if model.currentMessage /= "" then
+        MessageSent ->
+            if model.messageDraft /= "" then
                 let
                     newMessages =
-                        { role = User, content = model.currentMessage } :: model.messages
+                        { role = User, content = model.messageDraft } :: model.messageHistory
                 in
                 ( { model
-                    | currentMessage = ""
-                    , messages = newMessages
+                    | messageDraft = ""
+                    , messageHistory = newMessages
                   }
                 , outgoingMessage (encodeChatMessages (List.reverse newMessages))
                 )
@@ -90,46 +71,43 @@ update msg model =
             else
                 ( model, Cmd.none )
 
-        Update newMessage ->
-            ( { model | currentMessage = newMessage }, Cmd.none )
+        MessageTyped newMessage ->
+            ( { model | messageDraft = newMessage }, Cmd.none )
 
-        GotResponseChunk chunk ->
+        ReceivedResponseChunk chunk ->
             let
                 messages =
-                    case model.messages of
+                    case model.messageHistory of
                         lastMessage :: rest ->
                             if lastMessage.role == Assistant then
                                 { lastMessage | content = lastMessage.content ++ chunk } :: rest
 
                             else
-                                { role = Assistant, content = chunk } :: model.messages
+                                { role = Assistant, content = chunk } :: model.messageHistory
 
                         [] ->
                             [ { role = Assistant, content = chunk } ]
             in
-            ( { model | messages = messages }, Cmd.none )
+            ( { model | messageHistory = messages }, Cmd.none )
 
 
 
--- Err httpError ->
---     ( { model
---         | error = Just <| Debug.toString httpError
---       }
---     , Cmd.none
---     )
+-- VIEW
 
 
 view : Model -> Element Msg
 view model =
-    column [ width (fill |> maximum 600), centerX, height fill, spacing 10 ]
+    column [ width (fill |> maximum 800), centerX, height fill, spacing 10 ]
         [ column [ width fill, height fill, spacing 10 ]
             (List.map
                 (\message ->
-                    paragraph
+                    column
                         [ Background.color (Element.rgba255 0 128 0 0.5)
                         , Border.rounded 5
                         , padding 5
-                        , width (shrink |> maximum 400)
+                        , spacing 5
+                        , Font.size 16
+                        , width (shrink |> maximum 600)
                         , case message.role of
                             User ->
                                 alignRight
@@ -137,9 +115,9 @@ view model =
                             _ ->
                                 alignLeft
                         ]
-                        [ text message.content ]
+                        (String.split "\n" message.content |> List.map (\a -> paragraph [] [ text a ]))
                 )
-                (List.reverse model.messages)
+                (List.reverse model.messageHistory)
             )
         , if model.error /= Nothing then
             el
@@ -152,13 +130,17 @@ view model =
 
           else
             none
-        , Input.text [ htmlAttribute (Keyboard.on Keyboard.Keydown [ ( Enter, Send ) ]) ]
-            { onChange = Update
-            , text = model.currentMessage
+        , Input.text [ htmlAttribute (Keyboard.on Keyboard.Keydown [ ( Enter, MessageSent ) ]) ]
+            { onChange = MessageTyped
+            , text = model.messageDraft
             , placeholder = Nothing
-            , label = Input.labelLeft [] (text "")
+            , label = Input.labelLeft [] none
             }
         ]
+
+
+
+-- PORTS
 
 
 port incomingMessage : (String -> msg) -> Sub msg
@@ -169,14 +151,4 @@ port outgoingMessage : Encode.Value -> Cmd msg
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    incomingMessage GotResponseChunk
-
-
-main : Program () Model Msg
-main =
-    Browser.element
-        { init = \_ -> ( init, Cmd.none )
-        , view = \model -> Element.layout [ padding 10 ] (view model)
-        , update = \msg model -> update msg model
-        , subscriptions = subscriptions
-        }
+    incomingMessage ReceivedResponseChunk

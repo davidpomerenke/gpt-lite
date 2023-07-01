@@ -1,20 +1,26 @@
 {
-  "name": "gpt-plus-plus",
+  "name": "gpt-minus-minus",
   "version": "0.1.0",
   "description": "",
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "server": "nodemon server.js",
-    "client": "elm-live src/Main.elm -- --output=build/elm.js"
+    "start": "npm run build && npx --offline open-cli static/index.html && node server.js",
+    "build": "npx --offline elm make src/Main.elm --optimize --output=build/elm.js",
+    "server": "npx --offline nodemon server.js",
+    "client": "npx --offline elm-live src/Main.elm --hot -- --output=build/elm.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@fern-api/openai": "^0.0.32",
     "dotenv": "^16.0.3",
-    "elm-live": "^4.0.2",
-    "nodemon": "^2.0.22",
+    "elm": "^0.19.1-5",
+    "open-cli": "^7.2.0",
     "ws": "^8.13.0"
+  },
+  "devDependencies": {
+    "elm-live": "^4.0.2",
+    "nodemon": "^2.0.22"
   }
 }
