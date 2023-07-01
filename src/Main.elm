@@ -8,6 +8,7 @@ import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
 import Html.Attributes exposing (property)
+import Json.Decode as Decode
 import Json.Encode as Encode
 import Keyboard exposing (Key(..))
 import Keyboard.Events as Keyboard
@@ -18,10 +19,10 @@ import Platform.Cmd as Cmd
 import Types exposing (..)
 
 
-main : Program () Model Msg
+main : Program Encode.Value Model Msg
 main =
     Browser.element
-        { init = \_ -> ( init, Cmd.none )
+        { init = \flags -> ( init flags, Cmd.none )
         , view = \model -> Element.layout [ padding 10 ] (view model)
         , update = \msg model -> update msg model
         , subscriptions = subscriptions
@@ -36,14 +37,16 @@ type alias Model =
     { messageThreads : Dict ThreadId (List ChatMessage)
     , currentThread : ThreadId
     , messageDraft : String
+    , ctrlPressed : Bool
     }
 
 
-init : Model
-init =
-    { messageThreads = Dict.fromList [ ( 0, [] ) ]
+init : Encode.Value -> Model
+init flags =
+    { messageThreads = Decode.decodeValue decodeMessageThreads flags |> Result.withDefault Dict.empty
     , currentThread = 0
     , messageDraft = ""
+    , ctrlPressed = False
     }
 
 
@@ -51,7 +54,9 @@ type Msg
     = ThreadAdded
     | ThreadSelected ThreadId
     | MessageTyped String
-    | MessageSent
+    | CtrlPressed
+    | CtrlReleased
+    | EnterPressed
     | ReceivedResponseChunk String
 
 
@@ -71,12 +76,16 @@ update msg model =
                 threadNumber =
                     (Dict.keys model.messageThreads |> List.maximum |> Maybe.withDefault 0) + 1
             in
-            ( { model
-                | messageThreads = Dict.insert threadNumber [] model.messageThreads
-                , currentThread = threadNumber
-              }
-            , Cmd.none
-            )
+            if List.isEmpty oldHistory then
+                ( model, Cmd.none )
+
+            else
+                ( { model
+                    | messageThreads = Dict.insert threadNumber [] model.messageThreads
+                    , currentThread = threadNumber
+                  }
+                , Cmd.none
+                )
 
         ThreadSelected id ->
             ( { model | currentThread = id }, Cmd.none )
@@ -84,8 +93,14 @@ update msg model =
         MessageTyped newMessage ->
             ( { model | messageDraft = newMessage }, Cmd.none )
 
-        MessageSent ->
-            if model.messageDraft /= "" then
+        CtrlPressed ->
+            ( { model | ctrlPressed = True }, Cmd.none )
+
+        CtrlReleased ->
+            ( { model | ctrlPressed = False }, Cmd.none )
+
+        EnterPressed ->
+            if model.messageDraft /= "" && model.ctrlPressed then
                 let
                     message =
                         { role = User, content = model.messageDraft }
@@ -100,7 +115,10 @@ update msg model =
                     | messageDraft = ""
                     , messageThreads = newThreads
                   }
-                , outgoingMessage (encodeChatMessages (List.reverse newHistory))
+                , Cmd.batch
+                    [ outgoingMessage (encodeChatMessages (List.reverse newHistory))
+                    , persistState (encodeMessageThreads newThreads)
+                    ]
                 )
 
             else
@@ -123,15 +141,142 @@ update msg model =
                 newThreads =
                     Dict.insert model.currentThread newHistory model.messageThreads
             in
-            ( { model | messageThreads = newThreads }, Cmd.none )
+            ( { model | messageThreads = newThreads }, persistState (encodeMessageThreads newThreads) )
 
 
 
 -- VIEW
 
 
-mainColor =
-    Element.rgba255 0 0 100 0.5
+view : Model -> Element Msg
+view model =
+    row [ width fill, height fill, spacing 50, centerX, Font.size 16 ]
+        [ column [ width (fill |> maximum 200), spacing 5, alignTop ] (newThreadButton model :: threadList model)
+        , column [ width (fill |> maximum 800), height fill, spacing 10 ]
+            [ column [ width fill, height fill, spacing 10 ] (messageList model)
+            , promptInput model
+            ]
+        ]
+
+
+newThreadButton : Model -> Element Msg
+newThreadButton model =
+    Input.button
+        (width fill
+            :: borderStyle
+            ++ (if
+                    Dict.get model.currentThread model.messageThreads
+                        |> Maybe.map List.isEmpty
+                        |> Maybe.withDefault True
+                then
+                    inverseColors
+
+                else
+                    colors
+               )
+        )
+        { onPress = Just ThreadAdded
+        , label = text "+ New thread"
+        }
+
+
+threadList : Model -> List (Element Msg)
+threadList model =
+    model.messageThreads
+        |> Dict.toList
+        |> List.sortBy (\( threadId, _ ) -> threadId)
+        |> List.reverse
+        |> List.map
+            (\( threadId, threadContent ) ->
+                case List.last threadContent of
+                    Just firstMessage ->
+                        Input.button
+                            (width fill
+                                :: borderStyle
+                                ++ (if threadId == model.currentThread then
+                                        inverseColors
+
+                                    else
+                                        colors
+                                   )
+                            )
+                            { onPress = Just (ThreadSelected threadId)
+                            , label =
+                                text
+                                    ((String.left 20 firstMessage.content |> String.trim)
+                                        ++ (if String.length firstMessage.content > 20 then
+                                                " ..."
+
+                                            else
+                                                ""
+                                           )
+                                    )
+                            }
+
+                    Nothing ->
+                        none
+            )
+
+
+messageList : Model -> List (Element Msg)
+messageList model =
+    List.map
+        (\message ->
+            el
+                ([ Border.rounded 4
+                 , spacing 5
+                 , width (shrink |> maximum 600)
+                 , htmlAttribute (property "className" (Encode.string "bubble"))
+                 , case message.role of
+                    User ->
+                        alignRight
+
+                    _ ->
+                        alignLeft
+                 ]
+                    ++ borderStyle
+                )
+                (html
+                    (Markdown.toHtmlWith
+                        { githubFlavored = Just { tables = True, breaks = True }
+                        , defaultHighlighting = Just "python"
+                        , sanitize = True
+                        , smartypants = True
+                        }
+                        []
+                        message.content
+                    )
+                )
+        )
+        (List.reverse (Dict.get model.currentThread model.messageThreads |> Maybe.withDefault []))
+
+
+promptInput : Model -> Element Msg
+promptInput model =
+    Input.multiline
+        ([ Input.focusedOnLoad
+         , htmlAttribute
+            (Keyboard.on Keyboard.Keydown
+                [ ( Control, CtrlPressed )
+                , ( Meta, CtrlPressed )
+                , ( Enter, EnterPressed )
+                ]
+            )
+         , htmlAttribute
+            (Keyboard.on Keyboard.Keyup
+                [ ( Control, CtrlReleased )
+                , ( Meta, CtrlReleased )
+                ]
+            )
+         ]
+            ++ borderStyle
+        )
+        { onChange = MessageTyped
+        , text = model.messageDraft
+        , placeholder = Nothing
+        , label = Input.labelRight [] (Input.button borderStyle { onPress = Just EnterPressed, label = text "Send" })
+        , spellcheck = False
+        }
 
 
 borderStyle =
@@ -139,103 +284,15 @@ borderStyle =
     , Border.color (rgb 0 0 0)
     , Border.width 2
     , padding 5
-
-    -- , height (shrink |> minimum 30)
     ]
 
 
-minButtonHeight =
-    20
+colors =
+    [ Background.color (rgb 1 1 1), Font.color (rgb 0 0 0) ]
 
 
-view : Model -> Element Msg
-view model =
-    row [ width fill, height fill, spacing 50, centerX, Font.size 16 ]
-        [ column [ width (fill |> maximum 200), spacing 5, alignTop ]
-            (Input.button
-                ([ width fill ] ++ borderStyle)
-                { onPress = Just ThreadAdded
-                , label = text "+ New thread"
-                }
-                :: (model.messageThreads
-                        |> Dict.toList
-                        |> List.sortBy (\( threadId, _ ) -> threadId)
-                        |> List.reverse
-                        |> List.map
-                            (\( threadId, threadContent ) ->
-                                Input.button
-                                    ([ width fill
-                                     , Background.color
-                                        (if threadId == model.currentThread then
-                                            rgb 0 0 0
-
-                                         else
-                                            rgb 1 1 1
-                                        )
-                                     , Font.color
-                                        (if threadId == model.currentThread then
-                                            rgb 1 1 1
-
-                                         else
-                                            rgb 0 0 0
-                                        )
-                                     ]
-                                        ++ borderStyle
-                                    )
-                                    { onPress = Just (ThreadSelected threadId)
-                                    , label =
-                                        text
-                                            (case List.last threadContent of
-                                                Just firstMessage ->
-                                                    (String.left 20 firstMessage.content |> String.trim) ++ " ..."
-
-                                                Nothing ->
-                                                    "Empty Thread " ++ String.fromInt threadId
-                                            )
-                                    }
-                            )
-                   )
-            )
-        , column [ width (fill |> maximum 800), height fill, spacing 10 ]
-            [ column [ width fill, height fill, spacing 10 ]
-                (List.map
-                    (\message ->
-                        el
-                            ([ Border.rounded 4
-                             , spacing 5
-                             , width (shrink |> maximum 600)
-                             , htmlAttribute (property "className" (Encode.string "bubble"))
-                             , case message.role of
-                                User ->
-                                    alignRight
-
-                                _ ->
-                                    alignLeft
-                             ]
-                                ++ borderStyle
-                            )
-                            (html
-                                (Markdown.toHtmlWith
-                                    { githubFlavored = Just { tables = True, breaks = True }
-                                    , defaultHighlighting = Just "python"
-                                    , sanitize = True
-                                    , smartypants = True
-                                    }
-                                    []
-                                    message.content
-                                )
-                            )
-                    )
-                    (List.reverse (Dict.get model.currentThread model.messageThreads |> Maybe.withDefault []))
-                )
-            , Input.text ([ htmlAttribute (Keyboard.on Keyboard.Keydown [ ( Enter, MessageSent ) ]) ] ++ borderStyle)
-                { onChange = MessageTyped
-                , text = model.messageDraft
-                , placeholder = Nothing
-                , label = Input.labelLeft [] none
-                }
-            ]
-        ]
+inverseColors =
+    [ Background.color (rgb 0 0 0), Font.color (rgb 1 1 1) ]
 
 
 
@@ -246,6 +303,9 @@ port incomingMessage : (String -> msg) -> Sub msg
 
 
 port outgoingMessage : Encode.Value -> Cmd msg
+
+
+port persistState : Encode.Value -> Cmd msg
 
 
 subscriptions : Model -> Sub Msg

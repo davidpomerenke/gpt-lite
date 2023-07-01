@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <title>Main</title>
-    <script src="../build/elm.js"></script>
+    <script src="elm.js"></script>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link
       rel="stylesheet"
@@ -32,11 +32,18 @@
   <body>
     <div id="elm"></div>
     <script>
-      var app = Elm.Main.init({ node: document.getElementById("elm") });
+      var state = JSON.parse(localStorage.getItem("state"));
+      var app = Elm.Main.init({
+        node: document.getElementById("elm"),
+        flags: state,
+      });
       app.ports.outgoingMessage.subscribe((msg) => {
         let ws = new WebSocket("ws://localhost:3001");
         ws.onopen = () => ws.send(JSON.stringify(msg));
         ws.onmessage = (msg) => app.ports.incomingMessage.send(msg.data);
+      });
+      app.ports.persistState.subscribe((state) => {
+        localStorage.setItem("state", JSON.stringify(state));
       });
     </script>
   </body>

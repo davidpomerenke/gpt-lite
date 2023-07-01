@@ -4,7 +4,7 @@ The GPT4 API is much cheaper than the ChatGPT subscription.[^1] This project pro
 
 This can save you 240 USD per year, or give you 0.75-2.5 days of of additional free time per year.[^2]
 
-- 🔜 The core feature is **storing and organizing conversations**, such that results can be retrieved easily, and old conversations can be continued.
+- ✅ The core feature is **storing and organizing conversations**, such that results can be retrieved easily, and old conversations can be continued.
 - ✅ Live **streaming** of replies is supported.
 - ❌ Other features of the ChatGPT subscription, namely **search and plugins**, are interesting but ultimately rather useless gimmicks, and I do not implement them.
 - 🔜 As an additional feature, this UI will allow **editing the system prompt** in a convenient manner, and storing and editing multiple bot personas.
@@ -26,10 +26,10 @@ This can save you 240 USD per year, or give you 0.75-2.5 days of of additional f
 
 ## Development
 
-Server and client parts should be run in separate processes, such that both can be hot-reloaded:
+Backend and frontend should be run in separate processes, so that both can be hot-reloaded:
 
-- `npm run server`
-- `npm run client`
+- `npm run dev-backend`
+- `npm run dev-frontend`
 
 ## License
 

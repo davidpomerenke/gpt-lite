@@ -6,9 +6,9 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "npm run build && npx --offline open-cli static/index.html && node server.js",
-    "build": "npx --offline elm make src/Main.elm --optimize --output=build/elm.js",
-    "server": "npx --offline nodemon server.js",
-    "client": "npx --offline elm-live src/Main.elm --start-page static/index.html --hot -- --output=build/elm.js"
+    "build": "npx --offline elm make src/Main.elm --optimize --output=static/elm.js",
+    "dev-backend": "npx --offline nodemon server.js",
+    "dev-frontend": "npx --offline elm-live src/Main.elm --start-page static/index.html --hot -- --output=static/elm.js"
   },
   "author": "",
   "license": "ISC",

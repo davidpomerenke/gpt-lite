@@ -24,6 +24,8 @@ async function reply(chatMessages, ws) {
     {
       model: "gpt-4",
       messages: chatMessages,
+      temperature: 0,
+      maxTokens: 2048,
       stream: true,
     },
     (data) => {
