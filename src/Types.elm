@@ -1,6 +1,7 @@
 module Types exposing (..)
 
 import Json.Encode as Encode
+import Time exposing (Posix)
 
 
 
@@ -17,6 +18,10 @@ type alias ChatMessage =
     { role : Role
     , content : String
     }
+
+
+type alias ThreadId =
+    Int
 
 
 

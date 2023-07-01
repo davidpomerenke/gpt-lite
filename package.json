@@ -8,13 +8,13 @@
     "start": "npm run build && npx --offline open-cli static/index.html && node server.js",
     "build": "npx --offline elm make src/Main.elm --optimize --output=build/elm.js",
     "server": "npx --offline nodemon server.js",
-    "client": "npx --offline elm-live src/Main.elm --hot -- --output=build/elm.js"
+    "client": "npx --offline elm-live src/Main.elm --start-page static/index.html --hot -- --output=build/elm.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@fern-api/openai": "^0.0.32",
-    "dotenv": "^16.0.3",
+    "dotenv": "^16.3.1",
     "elm": "^0.19.1-5",
     "open-cli": "^7.2.0",
     "ws": "^8.13.0"
