@@ -16,7 +16,7 @@ This can save you 240 USD per year, or give you 0.75-2.5 days of additional free
 ## Screenshot
 
 <div align="center">
-<img width="50%" src="screenshot.png" />
+<img width="70%" src="screenshot.png" />
 </div>
 
 ## Usage
