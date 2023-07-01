@@ -222,31 +222,50 @@ messageList : Model -> List (Element Msg)
 messageList model =
     List.map
         (\message ->
-            el
-                ([ Border.rounded 4
-                 , spacing 5
-                 , width (shrink |> maximum 600)
-                 , htmlAttribute (property "className" (Encode.string "bubble"))
-                 , case message.role of
+            row
+                [ width fill, spacing 10 ]
+                [ case message.role of
                     User ->
-                        alignRight
+                        el [ width (fillPortion 1) ] none
 
                     _ ->
-                        alignLeft
-                 ]
-                    ++ borderStyle
-                )
-                (html
-                    (Markdown.toHtmlWith
-                        { githubFlavored = Just { tables = True, breaks = True }
-                        , defaultHighlighting = Just "python"
-                        , sanitize = True
-                        , smartypants = True
-                        }
-                        []
-                        message.content
-                    )
-                )
+                        none
+                , row [ width (fillPortion 4) ]
+                    [ none
+                    , column [ width fill ]
+                        [ el
+                            ([ Border.rounded 4
+                             , spacing 5
+                             , htmlAttribute (property "className" (Encode.string "bubble"))
+                             , case message.role of
+                                User ->
+                                    alignRight
+
+                                _ ->
+                                    alignLeft
+                             ]
+                                ++ borderStyle
+                            )
+                            (html
+                                (Markdown.toHtmlWith
+                                    { githubFlavored = Just { tables = True, breaks = True }
+                                    , defaultHighlighting = Just "markdown"
+                                    , sanitize = True
+                                    , smartypants = True
+                                    }
+                                    []
+                                    message.content
+                                )
+                            )
+                        ]
+                    ]
+                , case message.role of
+                    User ->
+                        none
+
+                    _ ->
+                        el [ width (fillPortion 1) ] none
+                ]
         )
         (List.reverse (Dict.get model.currentThread model.messageThreads |> Maybe.withDefault []))
 
