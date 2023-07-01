@@ -5,10 +5,9 @@ import Dict exposing (Dict)
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
-import Element.Events as Events
 import Element.Font as Font
 import Element.Input as Input
-import Html.Attributes exposing (property, style)
+import Html.Attributes exposing (property)
 import Json.Encode as Encode
 import Keyboard exposing (Key(..))
 import Keyboard.Events as Keyboard
@@ -154,7 +153,7 @@ view model =
     row [ width fill, height fill, spacing 50, centerX, Font.size 16 ]
         [ column [ width (fill |> maximum 200), spacing 5, alignTop ]
             (Input.button
-                (width fill :: borderStyle)
+                ([ width fill ] ++ borderStyle)
                 { onPress = Just ThreadAdded
                 , label = text "+ New thread"
                 }
@@ -165,7 +164,24 @@ view model =
                         |> List.map
                             (\( threadId, threadContent ) ->
                                 Input.button
-                                    ([ width fill ] ++ borderStyle)
+                                    ([ width fill
+                                     , Background.color
+                                        (if threadId == model.currentThread then
+                                            rgb 0 0 0
+
+                                         else
+                                            rgb 1 1 1
+                                        )
+                                     , Font.color
+                                        (if threadId == model.currentThread then
+                                            rgb 1 1 1
+
+                                         else
+                                            rgb 0 0 0
+                                        )
+                                     ]
+                                        ++ borderStyle
+                                    )
                                     { onPress = Just (ThreadSelected threadId)
                                     , label =
                                         text

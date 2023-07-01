@@ -1,7 +1,6 @@
 module Types exposing (..)
 
 import Json.Encode as Encode
-import Time exposing (Posix)
 
 
 
