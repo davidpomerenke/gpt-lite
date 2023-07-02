@@ -38,9 +38,7 @@ async function reply(chatMessages, ws) {
       onError: (error) => {
         console.log("Received error", error);
       },
-      onFinish: () => {
-        console.log("Finished!");
-      },
+      onFinish: () => {},
     }
   );
 }

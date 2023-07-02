@@ -38,8 +38,9 @@
         flags: state,
       });
       app.ports.outgoingMessage.subscribe((msg) => {
-        const host = window.location.host;
-        let ws = new WebSocket(`ws://${host}`);
+        const host = document.location.host;
+        const protocol = document.location.protocol.replace("http", "ws");
+        let ws = new WebSocket(`${protocol}//${host}`);
         ws.onopen = () => ws.send(JSON.stringify(msg));
         ws.onmessage = (msg) => app.ports.incomingMessage.send(msg.data);
       });
