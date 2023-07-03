@@ -7,16 +7,19 @@ const endpointSecret = process.env.STRIPE_ENDPOINT_SECRET;
 
 const useMoneyRoutes = (app) => {
   app.post("/top-up", express.raw({ type: "application/json" }), (req, res) => {
+    console.log("Stripe connected.");
     const sig = req.headers["stripe-signature"];
     let event;
     try {
       event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
     } catch (err) {
       res.status(400).send(`Webhook Error: ${err.message}`);
+      console.log(`Webhook Error: ${err.message}`);
       return;
     }
     switch (event.type) {
       case "checkout.session.completed":
+        console.log("Payment received.");
         const data = event.data.object;
         updateAndGetBalance(data["amount_subtotal"]);
         break;
