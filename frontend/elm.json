@@ -18,7 +18,8 @@
             "elm-explorations/markdown": "1.0.0",
             "mdgriffith/elm-ui": "1.1.8",
             "ohanhi/keyboard": "2.0.1",
-            "robinheghan/keyboard-events": "1.0.0"
+            "robinheghan/keyboard-events": "1.0.0",
+            "rtfeldman/elm-validate": "4.0.1"
         },
         "indirect": {
             "elm/bytes": "1.0.8",

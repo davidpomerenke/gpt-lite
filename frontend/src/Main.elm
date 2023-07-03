@@ -20,6 +20,7 @@ import List.Extra as List
 import Markdown
 import Platform.Cmd as Cmd
 import Types exposing (..)
+import Validate exposing (isValidEmail)
 
 
 main : Program Encode.Value Model Msg
@@ -43,6 +44,7 @@ type alias Model =
     , ctrlPressed : Bool
     , balance : Float
     , paymentLink : Maybe String
+    , loginStatus : LoginStatus
     }
 
 
@@ -54,6 +56,7 @@ init flags =
     , ctrlPressed = False
     , balance = 0.0
     , paymentLink = Nothing
+    , loginStatus = LoggedOut "" NotRequested
     }
 
 
@@ -67,6 +70,8 @@ type Msg
     | ReceivedResponseChunk String
     | ReceivedPaymentLink String
     | UpdatedBalance Float
+    | EmailAddressTyped String
+    | EmailAddressSubmitted
 
 
 
@@ -158,6 +163,21 @@ update msg model =
         UpdatedBalance newBalance ->
             ( { model | balance = newBalance }, Cmd.none )
 
+        EmailAddressTyped email ->
+            ( { model | loginStatus = LoggedOut email NotRequested }, Cmd.none )
+
+        EmailAddressSubmitted ->
+            case model.loginStatus of
+                LoggedOut email NotRequested ->
+                    if isValidEmail email then
+                        ( { model | loginStatus = LoggedOut email EmailSending }, Cmd.none )
+
+                    else
+                        ( { model | loginStatus = LoggedOut email InvalidEmail }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
+
 
 
 -- VIEW
@@ -166,18 +186,68 @@ update msg model =
 view : Model -> Html Msg
 view model =
     Element.layout [ Font.size 16 ]
-        (column
-            [ height fill, width fill, spacing 10 ]
-            [ topBar model
-            , row [ height fill, width fill, centerX, padding 10, spacing 50 ]
-                [ column [ width (fill |> maximum 200), spacing 5, alignTop ] (newThreadButton model :: threadList model)
-                , column [ width (fill |> maximum 800), height fill, spacing 10 ]
-                    [ column [ width fill, height fill, spacing 10 ] (messageList model)
-                    , promptInput model
-                    ]
+        (case model.loginStatus of
+            LoggedOut email emailSent ->
+                loginPage model email emailSent
+
+            LoggedIn user code ->
+                mainPage model
+        )
+
+
+loginPage model email emailSent =
+    column [ centerX, centerY, spacing 10 ]
+        [ Input.email (Input.focusedOnLoad :: borderStyle)
+            { onChange = EmailAddressTyped
+            , text = email
+            , placeholder = Just (Input.placeholder [] (text "Your Email Address"))
+            , label =
+                Input.labelRight [ spacing 10 ]
+                    (Input.button borderStyle
+                        { onPress =
+                            case emailSent of
+                                NotRequested ->
+                                    Just EmailAddressSubmitted
+
+                                _ ->
+                                    Nothing
+                        , label = text "Get Login Link"
+                        }
+                    )
+            }
+        , el [ centerX ]
+            (case emailSent of
+                NotRequested ->
+                    Element.none
+
+                InvalidEmail ->
+                    text "Invalid email address."
+
+                EmailSending ->
+                    text "Sending login link ..."
+
+                EmailFailed ->
+                    text "Failed to send login link to this email address. Maybe try again?"
+
+                EmailSent ->
+                    text "A login link has been sent to your email address."
+            )
+        ]
+
+
+mainPage : Model -> Element Msg
+mainPage model =
+    column
+        [ height fill, width fill, spacing 10 ]
+        [ topBar model
+        , row [ height fill, width fill, centerX, padding 10, spacing 50 ]
+            [ column [ width (fill |> maximum 200), spacing 5, alignTop ] (newThreadButton model :: threadList model)
+            , column [ width (fill |> maximum 800), height fill, spacing 10 ]
+                [ column [ width fill, height fill, spacing 10 ] (messageList model)
+                , promptInput model
                 ]
             ]
-        )
+        ]
 
 
 topBar : Model -> Element Msg

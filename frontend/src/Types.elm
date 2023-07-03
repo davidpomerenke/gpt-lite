@@ -27,6 +27,19 @@ type alias ThreadId =
     Int
 
 
+type EmailStatus
+    = NotRequested
+    | InvalidEmail
+    | EmailSending
+    | EmailFailed
+    | EmailSent
+
+
+type LoginStatus
+    = LoggedOut String EmailStatus
+    | LoggedIn String String
+
+
 
 -- ENCODERS
 
