@@ -32,10 +32,11 @@ Backend and frontend should be run in separate processes, so that both can be ho
 - `npm run dev-backend`
 - `npm run dev-frontend`
 
-For using Stripe (optional):
+For processing payments with Stripe (optional):
 
-- Define the Stripe endpoint secret in `.env`: `STRIPE_ENDPOINT_SECRET=whsec_...`
-- Create `frontend/static/links.json` and define a payment link: `{"paymentLink: "https://buy.stripe.com/..."}`
+- Using the Stripe dashboard, create a payment link that redirects to the site. Store the link in `frontend/static/links.json` in the format `{"paymentLink: "https://buy.stripe.com/..."}`.
+- Using the Stripe dashboard, create a webhook for the `checkout.session.completed` event, point it to the site at `.../top-up`. Store the Stripe endpoint secret in `.env`: `STRIPE_ENDPOINT_SECRET=whsec_...`
+- Test versions can be created for both of these by activating "Test mode" in the Stripe dashboard.
 
 ## License
 
