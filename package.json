@@ -8,7 +8,7 @@
     "start": "npm run build && node server.js",
     "build": "npx --offline elm make src/Main.elm --optimize --output=static/elm.js",
     "dev-backend": "npx --offline nodemon server.js",
-    "dev-frontend": "npx --offline elm-live src/Main.elm --start-page static/index.html --hot -- --output=static/elm.js"
+    "dev-frontend": "npx --offline elm-live src/Main.elm --dir static --hot -- --output=static/elm.js"
   },
   "author": "",
   "license": "ISC",
