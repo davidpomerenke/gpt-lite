@@ -1,19 +1,3 @@
-var express = require("express");
-var app = express();
-var expressWs = require("express-ws")(app);
-
-app.use(express.static("static"));
-
-app.ws("/", function (ws, req) {
-  ws.on("message", async function (msg) {
-    textChunk = await reply(JSON.parse(msg), ws);
-  });
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT);
-console.log(`Server is running on http://localhost:${PORT}`);
-
 require("dotenv").config();
 const { OpenAIClient } = require("@fern-api/openai");
 
