@@ -1,4 +1,5 @@
-static/elm.js
+frontend/static/elm.js
+backend/balance.txt
 
 # elm-package generated files
 elm-stuff
