@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "npm run build && node backend/server.js",
-    "build": "npx --offline elm make frontend/src/Main.elm --optimize --output=frontend/static/elm.js",
+    "build": "cd frontend && npx --offline elm make src/Main.elm --optimize --output=static/elm.js",
     "dev-backend": "npx --offline nodemon backend/server.js",
     "dev-frontend": "cd frontend && npx --offline elm-live src/Main.elm --dir static --hot -- --output=static/elm.js"
   },

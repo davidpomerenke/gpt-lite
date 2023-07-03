@@ -47,6 +47,9 @@
       app.ports.persistState.subscribe((state) => {
         localStorage.setItem("state", JSON.stringify(state));
       });
+      fetch("links.json")
+        .then((response) => response.json())
+        .then((json) => app.ports.paymentLink.send(json["paymentLink"]));
     </script>
   </body>
 </html>

@@ -21,8 +21,9 @@ This can save you 240 USD per year, or give you 0.75-2.5 days of additional free
 
 ## Usage
 
-1. `npm install`
-2. `npm start`
+1. Create a `.env` file and define your OpenAI API key: `OPENAI_API_KEY=sk-...`
+2. `npm install`
+3. `npm start`
 
 ## Development
 
@@ -30,6 +31,11 @@ Backend and frontend should be run in separate processes, so that both can be ho
 
 - `npm run dev-backend`
 - `npm run dev-frontend`
+
+For using Stripe (optional):
+
+- Define the Stripe endpoint secret in `.env`: `STRIPE_ENDPOINT_SECRET=whsec_...`
+- Create `frontend/static/links.json` and define a payment link: `{"paymentLink: "https://buy.stripe.com/..."}`
 
 ## License
 

@@ -42,6 +42,7 @@ type alias Model =
     , messageDraft : String
     , ctrlPressed : Bool
     , balance : Float
+    , paymentLink : Maybe String
     }
 
 
@@ -52,6 +53,7 @@ init flags =
     , messageDraft = ""
     , ctrlPressed = False
     , balance = 0.0
+    , paymentLink = Nothing
     }
 
 
@@ -63,6 +65,7 @@ type Msg
     | CtrlReleased
     | EnterPressed
     | ReceivedResponseChunk String
+    | ReceivedPaymentLink String
 
 
 
@@ -148,6 +151,9 @@ update msg model =
             in
             ( { model | messageThreads = newThreads }, persistState (encodeMessageThreads newThreads) )
 
+        ReceivedPaymentLink link ->
+            ( { model | paymentLink = Just link }, Cmd.none )
+
 
 
 -- VIEW
@@ -182,11 +188,16 @@ topBar model =
         , spacing 10
         ]
         [ el [ alignRight ] (text ("Balance: " ++ format usLocale model.balance))
-        , link [ Background.color (rgb 0 0 0), Font.color (rgb 255 255 255), padding 5 ]
-            { url = "https://buy.stripe.com/4gwcMOfao2P4ego9AA"
-            , label = text "+ Add funds"
-            }
+        , model.paymentLink |> Maybe.map paymentLinkButton |> Maybe.withDefault none
         ]
+
+
+paymentLinkButton : String -> Element Msg
+paymentLinkButton a =
+    link [ Background.color (rgb 0 0 0), Font.color (rgb 255 255 255), padding 5 ]
+        { url = a
+        , label = text "+ Add funds"
+        }
 
 
 newThreadButton : Model -> Element Msg
@@ -357,6 +368,12 @@ port outgoingMessage : Encode.Value -> Cmd msg
 port persistState : Encode.Value -> Cmd msg
 
 
+port paymentLink : (String -> msg) -> Sub msg
+
+
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    incomingMessage ReceivedResponseChunk
+    Sub.batch
+        [ incomingMessage ReceivedResponseChunk
+        , paymentLink ReceivedPaymentLink
+        ]
