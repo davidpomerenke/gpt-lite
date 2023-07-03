@@ -67,7 +67,6 @@
         let ws = new WebSocket(wsPath + "/balance");
         ws.onopen = () => ws.send("balance");
         ws.onmessage = (msg) => {
-          console.log(`Balance: ${msg.data} ${typeof msg.data}`);
           app.ports.balanceUpdate.send(parseInt(msg.data));
           ws.close();
         };
