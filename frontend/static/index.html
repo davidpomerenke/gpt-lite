@@ -32,24 +32,46 @@
   <body>
     <div id="elm"></div>
     <script>
+      // initialize elm with persisted state
       var state = JSON.parse(localStorage.getItem("state"));
       var app = Elm.Main.init({
         node: document.getElementById("elm"),
         flags: state,
       });
+
+      // websocket config
+      const host = document.location.host;
+      const protocol = document.location.protocol.replace("http", "ws");
+      const wsPath = `${protocol}//${host}`;
+
+      // websocket and port for retrieving ai completions
       app.ports.outgoingMessage.subscribe((msg) => {
-        const host = document.location.host;
-        const protocol = document.location.protocol.replace("http", "ws");
-        let ws = new WebSocket(`${protocol}//${host}`);
+        let ws = new WebSocket(wsPath + "/ai");
         ws.onopen = () => ws.send(JSON.stringify(msg));
         ws.onmessage = (msg) => app.ports.incomingMessage.send(msg.data);
       });
+
+      // port for persisting state
       app.ports.persistState.subscribe((state) => {
         localStorage.setItem("state", JSON.stringify(state));
       });
+
+      // port for retrieving payment link
       fetch("links.json")
         .then((response) => response.json())
         .then((json) => app.ports.paymentLink.send(json["paymentLink"]));
+
+      // websocket and port for updating displayed balance after top-up
+      const topUp = new URLSearchParams(window.location.search).get("top-up");
+      if (topUp == "completed") {
+        let ws = new WebSocket(wsPath + "/balance");
+        ws.onopen = () => ws.send("balance");
+        ws.onmessage = (msg) => {
+          console.log(`Balance: ${msg.data} ${typeof msg.data}`);
+          app.ports.balanceUpdate.send(parseInt(msg.data));
+          ws.close();
+        };
+      }
     </script>
   </body>
 </html>

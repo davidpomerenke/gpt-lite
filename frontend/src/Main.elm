@@ -66,6 +66,7 @@ type Msg
     | EnterPressed
     | ReceivedResponseChunk String
     | ReceivedPaymentLink String
+    | UpdatedBalance Float
 
 
 
@@ -153,6 +154,9 @@ update msg model =
 
         ReceivedPaymentLink link ->
             ( { model | paymentLink = Just link }, Cmd.none )
+
+        UpdatedBalance newBalance ->
+            ( { model | balance = newBalance }, Cmd.none )
 
 
 
@@ -371,9 +375,13 @@ port persistState : Encode.Value -> Cmd msg
 port paymentLink : (String -> msg) -> Sub msg
 
 
+port balanceUpdate : (Float -> msg) -> Sub msg
+
+
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
         [ incomingMessage ReceivedResponseChunk
         , paymentLink ReceivedPaymentLink
+        , balanceUpdate UpdatedBalance
         ]

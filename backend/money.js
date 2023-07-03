@@ -19,12 +19,17 @@ const useMoneyRoutes = (app) => {
     switch (event.type) {
       case "checkout.session.completed":
         const data = event.data.object;
-        updateAndGetBalance(data["amount_subtotal"]);
+        updateAndGetBalance(data["amount_subtotal"] / 100);
         break;
       default:
         break;
     }
     res.send(); // Return a 200 response to acknowledge receipt of the event
+  });
+  app.ws("/balance", function (ws, req) {
+    ws.on("message", async function (msg) {
+      ws.send(updateAndGetBalance());
+    });
   });
 };
 

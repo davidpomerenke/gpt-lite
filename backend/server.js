@@ -2,16 +2,11 @@ var express = require("express");
 var app = express();
 var expressWs = require("express-ws")(app);
 const { useMoneyRoutes } = require("./money");
-const { reply } = require("./ai");
+const { reply, useAiRoutes } = require("./ai");
 
 app.use(express.static("../frontend/static"));
 
-app.ws("/", function (ws, req) {
-  ws.on("message", async function (msg) {
-    textChunk = await reply(JSON.parse(msg), ws);
-  });
-});
-
+useAiRoutes(app);
 useMoneyRoutes(app);
 
 const PORT = process.env.PORT || 3000;

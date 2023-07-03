@@ -5,6 +5,14 @@ const client = new OpenAIClient({
   token: process.env.OPENAI_API_KEY,
 });
 
+const useAiRoutes = (app) => {
+  app.ws("/ai", function (ws, req) {
+    ws.on("message", async function (msg) {
+      textChunk = await reply(JSON.parse(msg), ws);
+    });
+  });
+};
+
 async function reply(chatMessages, ws) {
   await client.chat.createCompletion(
     {
@@ -26,3 +34,5 @@ async function reply(chatMessages, ws) {
     }
   );
 }
+
+module.exports = { useAiRoutes };
