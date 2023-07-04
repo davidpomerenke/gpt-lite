@@ -33,6 +33,7 @@ type EmailStatus
     | EmailSending
     | EmailFailed
     | EmailSent
+    | LoginFailed
 
 
 type LoginStatus

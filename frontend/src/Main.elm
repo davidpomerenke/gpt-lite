@@ -72,6 +72,9 @@ type Msg
     | UpdatedBalance Float
     | EmailAddressTyped String
     | EmailAddressSubmitted
+    | EmailAttempted Bool
+    | LoginConfirmed ( Bool, String, String )
+    | LogoutRequested
 
 
 
@@ -170,13 +173,34 @@ update msg model =
             case model.loginStatus of
                 LoggedOut email NotRequested ->
                     if isValidEmail email then
-                        ( { model | loginStatus = LoggedOut email EmailSending }, Cmd.none )
+                        ( { model | loginStatus = LoggedOut email EmailSending }, submitEmailAddress email )
 
                     else
                         ( { model | loginStatus = LoggedOut email InvalidEmail }, Cmd.none )
 
                 _ ->
                     ( model, Cmd.none )
+
+        EmailAttempted success ->
+            case ( model.loginStatus, success ) of
+                ( LoggedOut email _, True ) ->
+                    ( { model | loginStatus = LoggedOut email EmailSent }, Cmd.none )
+
+                ( LoggedOut email _, False ) ->
+                    ( { model | loginStatus = LoggedOut email EmailFailed }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        LoginConfirmed ( success, email, code ) ->
+            if success then
+                ( { model | loginStatus = LoggedIn email code }, Cmd.none )
+
+            else
+                ( { model | loginStatus = LoggedOut email EmailFailed }, Cmd.none )
+
+        LogoutRequested ->
+            ( { model | loginStatus = LoggedOut "" NotRequested }, Cmd.none )
 
 
 
@@ -190,8 +214,8 @@ view model =
             LoggedOut email emailSent ->
                 loginPage model email emailSent
 
-            LoggedIn user code ->
-                mainPage model
+            LoggedIn email code ->
+                mainPage model email code
         )
 
 
@@ -231,15 +255,18 @@ loginPage model email emailSent =
 
                 EmailSent ->
                     text "A login link has been sent to your email address."
+
+                LoginFailed ->
+                    text "Your login link has expired. Please try again."
             )
         ]
 
 
-mainPage : Model -> Element Msg
-mainPage model =
+mainPage : Model -> String -> String -> Element Msg
+mainPage model email code =
     column
         [ height fill, width fill, spacing 10 ]
-        [ topBar model
+        [ topBar model email
         , row [ height fill, width fill, centerX, padding 10, spacing 50 ]
             [ column [ width (fill |> maximum 200), spacing 5, alignTop ] (newThreadButton model :: threadList model)
             , column [ width (fill |> maximum 800), height fill, spacing 10 ]
@@ -250,8 +277,8 @@ mainPage model =
         ]
 
 
-topBar : Model -> Element Msg
-topBar model =
+topBar : Model -> String -> Element Msg
+topBar model email =
     row
         [ height shrink
         , width fill
@@ -261,7 +288,12 @@ topBar model =
         , padding 5
         , spacing 10
         ]
-        [ el [ alignRight ] (text ("Balance: " ++ format usLocale model.balance))
+        [ el [ alignLeft ] (text ("Logged in as " ++ email))
+        , Input.button borderStyle
+            { onPress = Just LogoutRequested
+            , label = text "Log out"
+            }
+        , el [ alignRight ] (text ("Balance: " ++ format usLocale model.balance))
         , model.paymentLink |> Maybe.map paymentLinkButton |> Maybe.withDefault none
         ]
 
@@ -448,10 +480,21 @@ port paymentLink : (String -> msg) -> Sub msg
 port balanceUpdate : (Float -> msg) -> Sub msg
 
 
+port submitEmailAddress : String -> Cmd msg
+
+
+port confirmEmailSent : (Bool -> msg) -> Sub msg
+
+
+port login : (( Bool, String, String ) -> msg) -> Sub msg
+
+
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
         [ incomingMessage ReceivedResponseChunk
         , paymentLink ReceivedPaymentLink
         , balanceUpdate UpdatedBalance
+        , confirmEmailSent EmailAttempted
+        , login LoginConfirmed
         ]

@@ -1,6 +1,7 @@
 frontend/static/elm.js
 frontend/static/links.json
 backend/balance.txt
+backend/accounts/
 
 # elm-package generated files
 elm-stuff

@@ -1,0 +1,74 @@
+path = require("path");
+fs = require("fs");
+const { createHash } = require("crypto");
+const nodemailer = require("nodemailer");
+require("dotenv").config({ path: path.resolve(__dirname, "./../.env") });
+const { makeRoute } = require("./util");
+
+const emailRequestRoute = makeRoute("/request-email", async (msg) => {
+  const baseUrl = process.env.BASE_URL;
+  const emailAddress = msg;
+  const code = generateAndSaveCode(emailAddress);
+  const success = await sendEmail(baseUrl, emailAddress, code);
+  return success;
+});
+
+const loginRoute = makeRoute("/login", async (msg) => {
+  const { email, code } = msg;
+  const correctCode = fs.readFileSync(fn(email), "utf8");
+  return code === correctCode;
+});
+
+const accountRoutes = (app) => {
+  emailRequestRoute(app);
+  loginRoute(app);
+};
+
+const generateAndSaveCode = (email) => {
+  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  let code = "";
+  for (let i = 0; i < 32; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  fs.writeFile(fn(email), code, (err) => {
+    if (err) throw err;
+  });
+  return code;
+};
+
+fs.mkdirSync("accounts", { recursive: true });
+const fn = (email) => "accounts/" + hash(email) + ".txt";
+
+const hash = (s) => createHash("sha256").update(s).digest("hex");
+
+const transporter = nodemailer.createTransport({
+  host: process.env.EMAIL_HOST,
+  port: 465,
+  secure: true,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
+
+const sendEmail = async (baseUrl, emailAddress, code) => {
+  const url = `${baseUrl}?email=${emailAddress}&code=${code}`;
+  const text = `Copy ${url} into your browser to login.`;
+  const html = `<p>Go to <a href="${url}">${url}</a> to login.</p>`;
+  const mail = {
+    from: `"Alliterative AI" <${process.env.EMAIL_USER}>`,
+    to: emailAddress,
+    subject: "Login to ChatGPT Lite",
+    text: text,
+    html: html,
+  };
+  try {
+    await transporter.sendMail(mail);
+  } catch (err) {
+    console.log(err.message);
+    return false;
+  }
+  return true;
+};
+
+module.exports = { accountRoutes };

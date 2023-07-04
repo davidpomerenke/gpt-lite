@@ -1,17 +1,15 @@
-require("dotenv").config();
+const { makeRoute } = require("./util");
 const { OpenAIClient } = require("@fern-api/openai");
+require("dotenv").config();
 
 const client = new OpenAIClient({
   token: process.env.OPENAI_API_KEY,
 });
 
-const useAiRoutes = (app) => {
-  app.ws("/ai", function (ws, req) {
-    ws.on("message", async function (msg) {
-      textChunk = await reply(JSON.parse(msg), ws);
-    });
-  });
-};
+const aiRoutes = makeRoute("/ai", async (msg) => {
+  const textChunk = await reply(msg);
+  return textChunk;
+});
 
 async function reply(chatMessages, ws) {
   await client.chat.createCompletion(
@@ -35,4 +33,4 @@ async function reply(chatMessages, ws) {
   );
 }
 
-module.exports = { useAiRoutes };
+module.exports = { aiRoutes };

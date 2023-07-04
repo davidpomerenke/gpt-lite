@@ -11,6 +11,11 @@
     />
     <script src="//unpkg.com/@highlightjs/cdn-assets@11.7.0/highlight.min.js"></script>
     <style>
+      /*
+      correcting some issues with elm-markdown,
+      which is most suitable for standalone output,
+      but I want the output to fit nicely into the bubbles
+      */
       .s.e {
         white-space: break-spaces !important;
         overflow-wrap: anywhere !important;
@@ -40,36 +45,54 @@
       });
 
       // websocket config
-      const host = document.location.host;
+      const host = document.location.host.replace("8000", "3000");
       const protocol = document.location.protocol.replace("http", "ws");
       const wsPath = `${protocol}//${host}`;
+      const channel = (path, msg, onreply) => {
+        let ws = new WebSocket(wsPath + path);
+        ws.onopen = () => ws.send(JSON.stringify(msg));
+        ws.onmessage = (msg) => onreply(JSON.parse(msg.data));
+      };
 
       // websocket and port for retrieving ai completions
-      app.ports.outgoingMessage.subscribe((msg) => {
-        let ws = new WebSocket(wsPath + "/ai");
-        ws.onopen = () => ws.send(JSON.stringify(msg));
-        ws.onmessage = (msg) => app.ports.incomingMessage.send(msg.data);
-      });
+      app.ports.outgoingMessage.subscribe((msg) =>
+        channel("ai", msg, (msg) => app.ports.incomingMessage.send(msg.data))
+      );
 
       // port for persisting state
-      app.ports.persistState.subscribe((state) => {
-        localStorage.setItem("state", JSON.stringify(state));
-      });
+      app.ports.persistState.subscribe((state) =>
+        localStorage.setItem("state", JSON.stringify(state))
+      );
 
       // port for retrieving payment link
       fetch("links.json")
         .then((response) => response.json())
         .then((json) => app.ports.paymentLink.send(json["paymentLink"]));
 
+      // port for requesting code via email
+      app.ports.submitEmailAddress.subscribe((msg) => {
+        channel("/request-email", msg, (msg) =>
+          app.ports.confirmEmailSent.send(JSON.parse(msg))
+        );
+      });
+
+      // port for logging in with received code
+      const urlParams = new URLSearchParams(window.location.search);
+      const email = urlParams.get("email");
+      const code = urlParams.get("code");
+      if (email && code) {
+        channel("/login", { email, code }, (msg) => {
+          console.log(msg);
+          const success = JSON.parse(msg);
+          app.ports.login.send([success, email, code]);
+        });
+      }
+
       // websocket and port for updating displayed balance after top-up
-      const topUp = new URLSearchParams(window.location.search).get("top-up");
-      if (topUp == "completed") {
-        let ws = new WebSocket(wsPath + "/balance");
-        ws.onopen = () => ws.send("balance");
-        ws.onmessage = (msg) => {
-          app.ports.balanceUpdate.send(parseInt(msg.data));
-          ws.close();
-        };
+      if (urlParams.get("top-up") == "completed") {
+        channel("/balance", "balance", (msg) =>
+          app.ports.balanceUpdate.send(parseInt(msg.data))
+        );
       }
     </script>
   </body>
