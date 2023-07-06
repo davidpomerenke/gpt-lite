@@ -1,3 +1,5 @@
+const { createHash } = require("crypto");
+
 const makeRoute = (route, reply) => {
   const routeFn = (app) => {
     app.ws(route, function (ws, req) {
@@ -15,4 +17,13 @@ const makeRoute = (route, reply) => {
   return routeFn;
 };
 
-module.exports = { makeRoute };
+fs.mkdirSync("accounts/sessions", { recursive: true });
+const accountPath = (email, fn) => {
+  folder = "accounts/" + hash(email);
+  fs.mkdirSync(folder, { recursive: true });
+  return folder + "/" + fn;
+};
+
+const hash = (s) => createHash("sha256").update(s).digest("hex");
+
+module.exports = { makeRoute, accountPath };

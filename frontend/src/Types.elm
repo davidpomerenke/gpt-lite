@@ -80,6 +80,46 @@ encodeRole role =
             Encode.string "assistant"
 
 
+encodeEmailStatus : EmailStatus -> Encode.Value
+encodeEmailStatus status =
+    case status of
+        NotRequested ->
+            Encode.string "not-requested"
+
+        InvalidEmail ->
+            Encode.string "invalid-email"
+
+        EmailSending ->
+            Encode.string "email-sending"
+
+        EmailFailed ->
+            Encode.string "email-failed"
+
+        EmailSent ->
+            Encode.string "email-sent"
+
+        LoginFailed ->
+            Encode.string "login-failed"
+
+
+encodeLoginStatus : LoginStatus -> Encode.Value
+encodeLoginStatus status =
+    case status of
+        LoggedOut email emailStatus ->
+            Encode.object
+                [ ( "status", Encode.string "logged-out" )
+                , ( "email", Encode.string email )
+                , ( "emailStatus", encodeEmailStatus emailStatus )
+                ]
+
+        LoggedIn email code ->
+            Encode.object
+                [ ( "status", Encode.string "logged-in" )
+                , ( "email", Encode.string email )
+                , ( "code", Encode.string code )
+                ]
+
+
 
 -- DECODERS
 

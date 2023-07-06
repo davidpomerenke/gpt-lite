@@ -50,8 +50,12 @@ type alias Model =
 
 init : Encode.Value -> Model
 init flags =
-    { messageThreads = Decode.decodeValue decodeMessageThreads flags |> Result.withDefault Dict.empty
-    , currentThread = 0
+    let
+        messageThreads =
+            Decode.decodeValue decodeMessageThreads flags |> Result.withDefault Dict.empty
+    in
+    { messageThreads = messageThreads
+    , currentThread = Dict.keys messageThreads |> List.maximum |> Maybe.withDefault 0
     , messageDraft = ""
     , ctrlPressed = False
     , balance = 0.0
@@ -294,14 +298,14 @@ topBar model email =
             , label = text "Log out"
             }
         , el [ alignRight ] (text ("Balance: " ++ format usLocale model.balance))
-        , model.paymentLink |> Maybe.map paymentLinkButton |> Maybe.withDefault none
+        , model.paymentLink |> Maybe.map (paymentLinkButton email) |> Maybe.withDefault none
         ]
 
 
-paymentLinkButton : String -> Element Msg
-paymentLinkButton a =
+paymentLinkButton : String -> String -> Element Msg
+paymentLinkButton email a =
     link [ Background.color (rgb 0 0 0), Font.color (rgb 255 255 255), padding 5 ]
-        { url = a
+        { url = a ++ "?prefilled_email=" ++ email
         , label = text "+ Add funds"
         }
 

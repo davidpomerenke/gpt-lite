@@ -1,9 +1,8 @@
 path = require("path");
 fs = require("fs");
-const { createHash } = require("crypto");
 const nodemailer = require("nodemailer");
 require("dotenv").config({ path: path.resolve(__dirname, "./../.env") });
-const { makeRoute } = require("./util");
+const { accountPath, makeRoute } = require("./util");
 
 const emailRequestRoute = makeRoute("/request-email", async (msg) => {
   const baseUrl = process.env.BASE_URL;
@@ -15,7 +14,7 @@ const emailRequestRoute = makeRoute("/request-email", async (msg) => {
 
 const loginRoute = makeRoute("/login", async (msg) => {
   const { email, code } = msg;
-  const correctCode = fs.readFileSync(fn(email), "utf8");
+  const correctCode = fs.readFileSync(accountPath(email, "code.txt"), "utf8");
   return code === correctCode;
 });
 
@@ -30,16 +29,11 @@ const generateAndSaveCode = (email) => {
   for (let i = 0; i < 32; i++) {
     code += chars[Math.floor(Math.random() * chars.length)];
   }
-  fs.writeFile(fn(email), code, (err) => {
+  fs.writeFile(accountPath(email, "code.txt"), code, (err) => {
     if (err) throw err;
   });
   return code;
 };
-
-fs.mkdirSync("accounts", { recursive: true });
-const fn = (email) => "accounts/" + hash(email) + ".txt";
-
-const hash = (s) => createHash("sha256").update(s).digest("hex");
 
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
