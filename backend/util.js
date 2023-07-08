@@ -1,4 +1,5 @@
 const { createHash } = require("crypto");
+require("dotenv").config({ path: path.resolve(__dirname, "./../.env") });
 
 const makeRoute = (route, reply) => {
   const routeFn = (app) => {
@@ -17,13 +18,12 @@ const makeRoute = (route, reply) => {
   return routeFn;
 };
 
-fs.mkdirSync("accounts/sessions", { recursive: true });
-const accountPath = (email, fn) => {
-  folder = "accounts/" + hash(email);
+const accountPath = (user, fn) => {
+  folder = "accounts/" + user;
   fs.mkdirSync(folder, { recursive: true });
   return folder + "/" + fn;
 };
 
 const hash = (s) => createHash("sha256").update(s).digest("hex");
 
-module.exports = { makeRoute, accountPath };
+module.exports = { makeRoute, accountPath, hash };

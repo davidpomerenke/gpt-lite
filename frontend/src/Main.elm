@@ -51,16 +51,23 @@ type alias Model =
 init : Encode.Value -> Model
 init flags =
     let
-        messageThreads =
-            Decode.decodeValue decodeMessageThreads flags |> Result.withDefault Dict.empty
+        persistedModel =
+            Decode.decodeValue decodePersistedModel flags
+                |> Result.withDefault
+                    { messageThreads = Dict.empty
+                    , loginStatus = LoggedOut "" NotRequested
+                    }
+
+        latestThread =
+            Dict.keys persistedModel.messageThreads |> List.maximum |> Maybe.withDefault 0
     in
-    { messageThreads = messageThreads
-    , currentThread = Dict.keys messageThreads |> List.maximum |> Maybe.withDefault 0
+    { messageThreads = persistedModel.messageThreads
+    , currentThread = latestThread
     , messageDraft = ""
     , ctrlPressed = False
     , balance = 0.0
     , paymentLink = Nothing
-    , loginStatus = LoggedOut "" NotRequested
+    , loginStatus = persistedModel.loginStatus
     }
 
 
@@ -68,6 +75,7 @@ type Msg
     = ThreadAdded
     | ThreadSelected ThreadId
     | MessageTyped String
+    | MessageSubmitted
     | CtrlPressed
     | CtrlReleased
     | EnterPressed
@@ -77,7 +85,7 @@ type Msg
     | EmailAddressTyped String
     | EmailAddressSubmitted
     | EmailAttempted Bool
-    | LoginConfirmed ( Bool, String, String )
+    | LoginConfirmed ( Bool, UserInfo )
     | LogoutRequested
 
 
@@ -114,6 +122,9 @@ update msg model =
         MessageTyped newMessage ->
             ( { model | messageDraft = newMessage }, Cmd.none )
 
+        MessageSubmitted ->
+            updateMessageSubmitted oldHistory model
+
         CtrlPressed ->
             ( { model | ctrlPressed = True }, Cmd.none )
 
@@ -122,25 +133,7 @@ update msg model =
 
         EnterPressed ->
             if model.messageDraft /= "" && model.ctrlPressed then
-                let
-                    message =
-                        { role = User, content = model.messageDraft }
-
-                    newHistory =
-                        message :: oldHistory
-
-                    newThreads =
-                        Dict.insert model.currentThread newHistory model.messageThreads
-                in
-                ( { model
-                    | messageDraft = ""
-                    , messageThreads = newThreads
-                  }
-                , Cmd.batch
-                    [ outgoingMessage (encodeChatMessages (List.reverse newHistory))
-                    , persistState (encodeMessageThreads newThreads)
-                    ]
-                )
+                updateMessageSubmitted oldHistory model
 
             else
                 ( model, Cmd.none )
@@ -162,7 +155,9 @@ update msg model =
                 newThreads =
                     Dict.insert model.currentThread newHistory model.messageThreads
             in
-            ( { model | messageThreads = newThreads }, persistState (encodeMessageThreads newThreads) )
+            ( { model | messageThreads = newThreads }
+            , persistState (encodePersistedModel newThreads model.loginStatus)
+            )
 
         ReceivedPaymentLink link ->
             ( { model | paymentLink = Just link }, Cmd.none )
@@ -196,15 +191,49 @@ update msg model =
                 _ ->
                     ( model, Cmd.none )
 
-        LoginConfirmed ( success, email, code ) ->
+        LoginConfirmed ( success, userInfo ) ->
             if success then
-                ( { model | loginStatus = LoggedIn email code }, Cmd.none )
+                let
+                    newLoginStatus =
+                        LoggedIn userInfo
+                in
+                ( { model | loginStatus = newLoginStatus }
+                , persistState (encodePersistedModel model.messageThreads newLoginStatus)
+                )
 
             else
-                ( { model | loginStatus = LoggedOut email EmailFailed }, Cmd.none )
+                ( { model | loginStatus = LoggedOut userInfo.email EmailFailed }, Cmd.none )
 
         LogoutRequested ->
-            ( { model | loginStatus = LoggedOut "" NotRequested }, Cmd.none )
+            let
+                newLoginStatus =
+                    LoggedOut "" NotRequested
+            in
+            ( { model | loginStatus = newLoginStatus }
+            , persistState (encodePersistedModel model.messageThreads newLoginStatus)
+            )
+
+
+updateMessageSubmitted oldHistory model =
+    let
+        message =
+            { role = User, content = model.messageDraft }
+
+        newHistory =
+            message :: oldHistory
+
+        newThreads =
+            Dict.insert model.currentThread newHistory model.messageThreads
+    in
+    ( { model
+        | messageDraft = ""
+        , messageThreads = newThreads
+      }
+    , Cmd.batch
+        [ outgoingMessage (encodeChatMessages (List.reverse newHistory))
+        , persistState (encodePersistedModel newThreads model.loginStatus)
+        ]
+    )
 
 
 
@@ -218,14 +247,19 @@ view model =
             LoggedOut email emailSent ->
                 loginPage model email emailSent
 
-            LoggedIn email code ->
-                mainPage model email code
+            LoggedIn userInfo ->
+                mainPage model userInfo
         )
 
 
 loginPage model email emailSent =
     column [ centerX, centerY, spacing 10 ]
-        [ Input.email (Input.focusedOnLoad :: borderStyle)
+        [ Input.email
+            ([ Input.focusedOnLoad
+             , htmlAttribute (Keyboard.on Keyboard.Keydown [ ( Enter, EmailAddressSubmitted ) ])
+             ]
+                ++ borderStyle
+            )
             { onChange = EmailAddressTyped
             , text = email
             , placeholder = Just (Input.placeholder [] (text "Your Email Address"))
@@ -266,11 +300,10 @@ loginPage model email emailSent =
         ]
 
 
-mainPage : Model -> String -> String -> Element Msg
-mainPage model email code =
+mainPage model userInfo =
     column
         [ height fill, width fill, spacing 10 ]
-        [ topBar model email
+        [ topBar model userInfo
         , row [ height fill, width fill, centerX, padding 10, spacing 50 ]
             [ column [ width (fill |> maximum 200), spacing 5, alignTop ] (newThreadButton model :: threadList model)
             , column [ width (fill |> maximum 800), height fill, spacing 10 ]
@@ -281,8 +314,7 @@ mainPage model email code =
         ]
 
 
-topBar : Model -> String -> Element Msg
-topBar model email =
+topBar model { email, user } =
     row
         [ height shrink
         , width fill
@@ -298,19 +330,17 @@ topBar model email =
             , label = text "Log out"
             }
         , el [ alignRight ] (text ("Balance: " ++ format usLocale model.balance))
-        , model.paymentLink |> Maybe.map (paymentLinkButton email) |> Maybe.withDefault none
+        , model.paymentLink |> Maybe.map (paymentLinkButton email user) |> Maybe.withDefault none
         ]
 
 
-paymentLinkButton : String -> String -> Element Msg
-paymentLinkButton email a =
+paymentLinkButton email user url =
     link [ Background.color (rgb 0 0 0), Font.color (rgb 255 255 255), padding 5 ]
-        { url = a ++ "?prefilled_email=" ++ email
+        { url = url ++ "?prefilled_email=" ++ email ++ "&client_reference_id=" ++ user
         , label = text "+ Add funds"
         }
 
 
-newThreadButton : Model -> Element Msg
 newThreadButton model =
     Input.button
         (width fill
@@ -421,7 +451,6 @@ messageList model =
         (List.reverse (Dict.get model.currentThread model.messageThreads |> Maybe.withDefault []))
 
 
-promptInput : Model -> Element Msg
 promptInput model =
     Input.multiline
         ([ Input.focusedOnLoad
@@ -444,7 +473,7 @@ promptInput model =
         { onChange = MessageTyped
         , text = model.messageDraft
         , placeholder = Nothing
-        , label = Input.labelRight [] (Input.button borderStyle { onPress = Just EnterPressed, label = text "Send" })
+        , label = Input.labelRight [] (Input.button borderStyle { onPress = Just MessageSubmitted, label = text "Send" })
         , spellcheck = False
         }
 
@@ -490,7 +519,7 @@ port submitEmailAddress : String -> Cmd msg
 port confirmEmailSent : (Bool -> msg) -> Sub msg
 
 
-port login : (( Bool, String, String ) -> msg) -> Sub msg
+port login : (( Bool, UserInfo ) -> msg) -> Sub msg
 
 
 subscriptions : Model -> Sub Msg

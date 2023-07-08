@@ -3,7 +3,6 @@ path = require("path");
 const { makeRoute, accountPath } = require("./util");
 const express = require("express");
 const stripe = require("stripe")("sk_test_..."); // TODO: ???
-require("dotenv").config({ path: path.resolve(__dirname, "./../.env") });
 
 const endpointSecret = process.env.STRIPE_ENDPOINT_SECRET;
 
@@ -16,7 +15,8 @@ const stripeEndpointRoute = (app) => {
       if (event.type === "checkout.session.completed") {
         const data = event.data.object;
         const amount = data.amount_subtotal / 100;
-        fs.writeFileSync(`accounts/sessions/${data.id}.txt`, amount);
+        console.log(data);
+        updateAndGetBalance(data.client_reference_id, amount);
       }
       res.send(); // Return a 200 response to acknowledge receipt of the event
     } catch (err) {
@@ -27,26 +27,17 @@ const stripeEndpointRoute = (app) => {
   });
 };
 
-const checkoutCompletionRoute = makeRoute("/checkout-complete", (msg) => {
-  amount = fs.readFileSync(
-    `accounts/sessions/${msg.checkoutSessionId}.txt`,
-    "utf8"
-  );
-  return updateAndGetBalance(msg.email);
-});
-
 const balanceRoute = makeRoute("/balance", (msg) => {
-  return updateAndGetBalance(msg.email);
+  return updateAndGetBalance(msg.user);
 });
 
 const moneyRoutes = (app) => {
   stripeEndpointRoute(app);
-  checkoutCompletionRoute(app);
   balanceRoute(app);
 };
 
-const updateAndGetBalance = (email, change = 0) => {
-  fn = accountPath(email, "balance.txt");
+const updateAndGetBalance = (user, change = 0) => {
+  fn = accountPath(user, "balance.txt");
   if (change !== 0) fs.appendFileSync(fn, change + "\n");
   const changes = fs
     .readFileSync(fn, "utf8")

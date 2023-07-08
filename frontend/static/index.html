@@ -76,22 +76,20 @@
       // port for logging in with received code
       const urlParams = new URLSearchParams(window.location.search);
       const email = urlParams.get("email");
+      const user = urlParams.get("user");
       const code = urlParams.get("code");
-      if (email && code) {
-        channel("/login", { email, code }, (msg) => {
-          console.log(msg);
+      if (email && user && code) {
+        channel("/login", { email, user, code }, (msg) => {
           const success = JSON.parse(msg);
-          app.ports.login.send([success, email, code]);
+          app.ports.login.send([success, email, user, code]);
         });
       }
 
-      // websocket and port for updating displayed balance after top-up
-      checkoutSessionId = urlParams.get("CHECKOUT_SESSION_ID");
-      if (checkoutSessionId) {
-        channel("/checkout-complete", checkoutSessionId, (msg) =>
-          app.ports.balanceUpdate.send(parseInt(msg.data))
-        );
-      }
+      // websocket and port for updating displayed balance
+      channel("/balance", checkoutSessionId, (msg) =>
+        app.ports.balanceUpdate.send(parseInt(msg.data))
+      );
+      if (urlParams.get("checkout") === "") getBalance();
     </script>
   </body>
 </html>

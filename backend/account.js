@@ -1,19 +1,20 @@
 path = require("path");
 fs = require("fs");
 const nodemailer = require("nodemailer");
-require("dotenv").config({ path: path.resolve(__dirname, "./../.env") });
-const { accountPath, makeRoute } = require("./util");
+const { accountPath, makeRoute, hash } = require("./util");
 
 const emailRequestRoute = makeRoute("/request-email", async (msg) => {
   const baseUrl = process.env.BASE_URL;
   const emailAddress = msg;
+  const userId = hash(emailAddress);
   const code = generateAndSaveCode(emailAddress);
-  const success = await sendEmail(baseUrl, emailAddress, code);
+  const success = await sendEmail(baseUrl, emailAddress, userId, code);
   return success;
 });
 
 const loginRoute = makeRoute("/login", async (msg) => {
-  const { email, code } = msg;
+  const { email, user, code } = msg;
+  if (hash(email) !== user) return false;
   const correctCode = fs.readFileSync(accountPath(email, "code.txt"), "utf8");
   return code === correctCode;
 });
@@ -45,8 +46,8 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-const sendEmail = async (baseUrl, emailAddress, code) => {
-  const url = `${baseUrl}?email=${emailAddress}&code=${code}`;
+const sendEmail = async (baseUrl, emailAddress, userId, code) => {
+  const url = `${baseUrl}?email=${emailAddress}&user=${userId}&code=${code}`;
   const text = `Copy ${url} into your browser to login.`;
   const html = `<p>Go to <a href="${url}">${url}</a> to login.</p>`;
   const mail = {

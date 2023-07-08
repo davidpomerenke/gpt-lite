@@ -1,5 +1,5 @@
 const { OpenAIClient } = require("@fern-api/openai");
-require("dotenv").config();
+require("./util");
 
 const client = new OpenAIClient({
   token: process.env.OPENAI_API_KEY,
@@ -35,7 +35,7 @@ const reply = (chatMessages, ws) => {
     },
     {
       onError: (e) => console.warn(e),
-      onFinish: () => console.log("finished"),
+      onFinish: () => {},
     }
   );
 };
