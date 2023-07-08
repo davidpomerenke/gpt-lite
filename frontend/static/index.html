@@ -55,8 +55,8 @@
       };
 
       // websocket and port for retrieving ai completions
-      app.ports.outgoingMessage.subscribe((msg) =>
-        channel("ai", msg, (msg) => app.ports.incomingMessage.send(msg.data))
+      app.ports.outgoingMessage.subscribe((msgOut) =>
+        channel("/ai", msgOut, (msgIn) => app.ports.incomingMessage.send(msgIn))
       );
 
       // port for persisting state
