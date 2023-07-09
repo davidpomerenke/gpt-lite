@@ -150,7 +150,6 @@ updateLoginPage msg model =
                 _ ->
                     ( LoginPage { model | emailStatus = EmailFailed }, Cmd.none )
 
-        -- TODO
         LoginConfirmed userInfo result ->
             case result of
                 Ok (Just balance) ->
@@ -313,13 +312,7 @@ loginPage model =
             , label =
                 Input.labelRight [ spacing 10 ]
                     (Input.button borderStyle
-                        { onPress =
-                            case model.emailStatus of
-                                NotRequested ->
-                                    Just EmailAddressSubmitted
-
-                                _ ->
-                                    Nothing
+                        { onPress = Just EmailAddressSubmitted
                         , label = text "Get Login Link"
                         }
                     )

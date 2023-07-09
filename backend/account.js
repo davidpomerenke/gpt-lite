@@ -17,7 +17,7 @@ const loginRoute = makeHttpRoute("/login", async (msg) => {
   const { email, id, code } = msg;
   if (hash(email) !== id) return { balance: null };
   const correctCode = fs.readFileSync(accountPath(email, "code.txt"), "utf8");
-  if (code === correctCode) return { balance: updateAndGetBalance(id) };
+  if (code === correctCode) return { balance: await updateAndGetBalance(id) };
   else return { balance: null };
 });
 
