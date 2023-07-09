@@ -11,20 +11,15 @@ import String
 -- TYPES
 
 
-type Role
-    = System
-    | User
-    | Assistant
+type Model
+    = LoginPage LoginPageModel
+    | MainPage MainPageModel
 
 
-type alias ChatMessage =
-    { role : Role
-    , content : String
+type alias LoginPageModel =
+    { email : String
+    , emailStatus : EmailStatus
     }
-
-
-type alias ThreadId =
-    Int
 
 
 type EmailStatus
@@ -36,20 +31,69 @@ type EmailStatus
     | LoginFailed
 
 
-type alias UserInfo =
-    { email : String
-    , user : String
-    , code : String
+type alias MainPageModel =
+    { user : UserInfo
+    , messageThreads : Dict ThreadId (List ChatMessage)
+    , currentThread : ThreadId
+    , messageDraft : String
+    , ctrlPressed : Bool
+    , paymentLink : Maybe String
     }
 
 
-type LoginStatus
-    = LoggedOut String EmailStatus
-    | LoggedIn UserInfo
+type alias UserInfo =
+    { email : String
+    , id : String
+    , code : String
+    , balance : Float
+    }
+
+
+type alias ChatMessage =
+    { role : Role
+    , content : String
+    }
+
+
+type Role
+    = System
+    | User
+    | Assistant
+
+
+type alias ThreadId =
+    Int
 
 
 
 -- ENCODERS
+
+
+encodePersistedModel : Model -> Encode.Value
+encodePersistedModel model =
+    case model of
+        LoginPage _ ->
+            Encode.object
+                [ ( "status", Encode.string "logged-out" )
+                ]
+
+        MainPage mainModel ->
+            Encode.object
+                [ ( "status", Encode.string "logged-in" )
+                , ( "user", encodeUser mainModel.user )
+                , ( "messageThreads", encodeMessageThreads mainModel.messageThreads )
+                , ( "currentThread", Encode.int mainModel.currentThread )
+                ]
+
+
+encodeUser : UserInfo -> Encode.Value
+encodeUser user =
+    Encode.object
+        [ ( "email", Encode.string user.email )
+        , ( "id", Encode.string user.id )
+        , ( "code", Encode.string user.code )
+        , ( "balance", Encode.float user.balance )
+        ]
 
 
 encodeMessageThreads : Dict ThreadId (List ChatMessage) -> Encode.Value
@@ -87,57 +131,47 @@ encodeRole role =
             Encode.string "assistant"
 
 
-encodeEmailStatus : EmailStatus -> Encode.Value
-encodeEmailStatus status =
-    case status of
-        NotRequested ->
-            Encode.string "not-requested"
-
-        InvalidEmail ->
-            Encode.string "invalid-email"
-
-        EmailSending ->
-            Encode.string "email-sending"
-
-        EmailFailed ->
-            Encode.string "email-failed"
-
-        EmailSent ->
-            Encode.string "email-sent"
-
-        LoginFailed ->
-            Encode.string "login-failed"
-
-
-encodeLoginStatus : LoginStatus -> Encode.Value
-encodeLoginStatus status =
-    case status of
-        LoggedOut email emailStatus ->
-            Encode.object
-                [ ( "status", Encode.string "logged-out" )
-                , ( "email", Encode.string email )
-                , ( "emailStatus", encodeEmailStatus emailStatus )
-                ]
-
-        LoggedIn userInfo ->
-            Encode.object
-                [ ( "status", Encode.string "logged-in" )
-                , ( "email", Encode.string userInfo.email )
-                , ( "user", Encode.string userInfo.user )
-                , ( "code", Encode.string userInfo.code )
-                ]
-
-
-encodePersistedModel : Dict ThreadId (List ChatMessage) -> LoginStatus -> Encode.Value
-encodePersistedModel messageThreads loginStatus =
-    Encode.object
-        [ ( "messageThreads", encodeMessageThreads messageThreads )
-        , ( "loginStatus", encodeLoginStatus loginStatus )
-        ]
-
-
 
 -- DECODERS
+
+
+decodePersistedModel : Decode.Decoder Model
+decodePersistedModel =
+    Decode.field "status" Decode.string
+        |> Decode.andThen
+            (\status ->
+                case status of
+                    "logged-out" ->
+                        Decode.succeed (LoginPage { email = "", emailStatus = NotRequested })
+
+                    "logged-in" ->
+                        Decode.map3
+                            (\user messageThreads currentThread ->
+                                MainPage
+                                    { user = user
+                                    , messageThreads = messageThreads
+                                    , currentThread = currentThread
+                                    , messageDraft = ""
+                                    , ctrlPressed = False
+                                    , paymentLink = Nothing
+                                    }
+                            )
+                            (Decode.field "user" decodeUser)
+                            (Decode.field "messageThreads" decodeMessageThreads)
+                            (Decode.field "currentThread" Decode.int)
+
+                    _ ->
+                        Decode.fail "Invalid status"
+            )
+
+
+decodeUser : Decode.Decoder UserInfo
+decodeUser =
+    Decode.map4 UserInfo
+        (Decode.field "email" Decode.string)
+        (Decode.field "id" Decode.string)
+        (Decode.field "code" Decode.string)
+        (Decode.field "balance" Decode.float)
 
 
 decodeMessageThreads : Decode.Decoder (Dict ThreadId (List ChatMessage))
@@ -175,67 +209,3 @@ decodeRole =
                     _ ->
                         Decode.fail "Invalid role"
             )
-
-
-decodeEmailStatus : Decode.Decoder EmailStatus
-decodeEmailStatus =
-    Decode.string
-        |> Decode.andThen
-            (\status ->
-                case status of
-                    "not-requested" ->
-                        Decode.succeed NotRequested
-
-                    "invalid-email" ->
-                        Decode.succeed InvalidEmail
-
-                    "email-sending" ->
-                        Decode.succeed EmailSending
-
-                    "email-failed" ->
-                        Decode.succeed EmailFailed
-
-                    "email-sent" ->
-                        Decode.succeed EmailSent
-
-                    "login-failed" ->
-                        Decode.succeed LoginFailed
-
-                    _ ->
-                        Decode.fail "Invalid email status"
-            )
-
-
-decodeUserInfo : Decode.Decoder UserInfo
-decodeUserInfo =
-    Decode.map3 UserInfo
-        (Decode.field "email" Decode.string)
-        (Decode.field "user" Decode.string)
-        (Decode.field "code" Decode.string)
-
-
-decodeLoginStatus : Decode.Decoder LoginStatus
-decodeLoginStatus =
-    Decode.field "status" Decode.string
-        |> Decode.andThen
-            (\status ->
-                case status of
-                    "logged-out" ->
-                        Decode.map2 LoggedOut
-                            (Decode.field "email" Decode.string)
-                            (Decode.field "emailStatus" decodeEmailStatus)
-
-                    "logged-in" ->
-                        Decode.map LoggedIn decodeUserInfo
-
-                    _ ->
-                        Decode.fail "Invalid login status"
-            )
-
-
-decodePersistedModel : Decode.Decoder { messageThreads : Dict ThreadId (List ChatMessage), loginStatus : LoginStatus }
-decodePersistedModel =
-    Decode.map2
-        (\messageThreads loginStatus -> { messageThreads = messageThreads, loginStatus = loginStatus })
-        (Decode.field "messageThreads" decodeMessageThreads)
-        (Decode.field "loginStatus" decodeLoginStatus)

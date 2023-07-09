@@ -1,18 +1,17 @@
 const { createHash } = require("crypto");
+const express = require("express");
 require("dotenv").config({ path: path.resolve(__dirname, "./../.env") });
 
-const makeRoute = (route, reply) => {
+const makeHttpRoute = (route, reply) => {
   const routeFn = (app) => {
-    app.ws(route, function (ws, req) {
-      ws.on("message", async function (msg) {
-        try {
-          msg = JSON.parse(msg);
-          const replyMsg = await reply(msg);
-          ws.send(JSON.stringify(replyMsg));
-        } catch (err) {
-          console.log(err);
-        }
-      });
+    console.log("listening on", route);
+    app.post(route, async (req, res) => {
+      try {
+        res.send(await reply(req.body));
+      } catch (err) {
+        console.warn(err);
+        res.status(400).send();
+      }
     });
   };
   return routeFn;
@@ -26,4 +25,4 @@ const accountPath = (user, fn) => {
 
 const hash = (s) => createHash("sha256").update(s).digest("hex");
 
-module.exports = { makeRoute, accountPath, hash };
+module.exports = { makeHttpRoute, accountPath, hash };

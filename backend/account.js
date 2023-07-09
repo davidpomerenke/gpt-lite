@@ -1,18 +1,18 @@
 path = require("path");
 fs = require("fs");
 const nodemailer = require("nodemailer");
-const { accountPath, makeRoute, hash } = require("./util");
+const { accountPath, makeHttpRoute, hash } = require("./util");
 
-const emailRequestRoute = makeRoute("/request-email", async (msg) => {
+const emailRequestRoute = makeHttpRoute("/request-email", async (msg) => {
   const baseUrl = process.env.BASE_URL;
-  const emailAddress = msg;
+  const emailAddress = msg.email;
   const userId = hash(emailAddress);
   const code = generateAndSaveCode(emailAddress);
   const success = await sendEmail(baseUrl, emailAddress, userId, code);
   return success;
 });
 
-const loginRoute = makeRoute("/login", async (msg) => {
+const loginRoute = makeHttpRoute("/login", async (msg) => {
   const { email, user, code } = msg;
   if (hash(email) !== user) return false;
   const correctCode = fs.readFileSync(accountPath(email, "code.txt"), "utf8");
