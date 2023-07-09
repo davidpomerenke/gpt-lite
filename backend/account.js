@@ -2,6 +2,7 @@ path = require("path");
 fs = require("fs");
 const nodemailer = require("nodemailer");
 const { accountPath, makeHttpRoute, hash } = require("./util");
+const { updateAndGetBalance } = require("./money");
 
 const emailRequestRoute = makeHttpRoute("/request-email", async (msg) => {
   const baseUrl = process.env.BASE_URL;
@@ -13,10 +14,11 @@ const emailRequestRoute = makeHttpRoute("/request-email", async (msg) => {
 });
 
 const loginRoute = makeHttpRoute("/login", async (msg) => {
-  const { email, user, code } = msg;
-  if (hash(email) !== user) return false;
+  const { email, id, code } = msg;
+  if (hash(email) !== id) return { balance: null };
   const correctCode = fs.readFileSync(accountPath(email, "code.txt"), "utf8");
-  return code === correctCode;
+  if (code === correctCode) return { balance: updateAndGetBalance(id) };
+  else return { balance: null };
 });
 
 const accountRoutes = (app) => {
@@ -46,8 +48,8 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-const sendEmail = async (baseUrl, emailAddress, userId, code) => {
-  const url = `${baseUrl}?email=${emailAddress}&user=${userId}&code=${code}`;
+const sendEmail = async (baseUrl, emailAddress, id, code) => {
+  const url = `${baseUrl}?email=${emailAddress}&id=${id}&code=${code}`;
   const text = `Copy ${url} into your browser to login.`;
   const html = `<p>Go to <a href="${url}">${url}</a> to login.</p>`;
   const mail = {

@@ -22,4 +22,4 @@ const updateAndGetBalance = (user, change = 0) => {
   return balance;
 };
 
-module.exports = { moneyRoutes };
+module.exports = { moneyRoutes, updateAndGetBalance };

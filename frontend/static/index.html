@@ -35,10 +35,20 @@
     <div id="elm"></div>
     <script>
       // initialize elm with persisted state
-      var state = JSON.parse(localStorage.getItem("state"));
+      let state = { status: "logged-out" };
+      const storedState = JSON.parse(localStorage.getItem("state"));
+      if (storedState) state = storedState;
+      // receive login data via url parameters
+      let user = null;
+      const urlParams = new URLSearchParams(window.location.search);
+      const email = urlParams.get("email");
+      const id = urlParams.get("id");
+      const code = urlParams.get("code");
+      if (email && id && code)
+        user = { email: email, id: id, code: code, balance: null };
       var app = Elm.Main.init({
         node: document.getElementById("elm"),
-        flags: state,
+        flags: { state, user },
       });
 
       // websocket config
@@ -52,44 +62,22 @@
       };
 
       // websocket and port for retrieving ai completions
-      app.ports.outgoingMessage.subscribe((msgOut) =>
-        channel("/ai", msgOut, (msgIn) => app.ports.incomingMessage.send(msgIn))
+      app.ports.outgoingChatMessage.subscribe((msgOut) =>
+        channel("/ai", msgOut, (msgIn) =>
+          app.ports.incomingChatMessageChunk.send(msgIn)
+        )
       );
 
       // port for persisting state
-      app.ports.persistState.subscribe((state) =>
+      app.ports.outgoingPersistedState.subscribe((state) =>
         localStorage.setItem("state", JSON.stringify(state))
       );
 
-      // port for retrieving payment link
-      fetch("links.json")
-        .then((response) => response.json())
-        .then((json) => app.ports.paymentLink.send(json["paymentLink"]));
-
-      // port for requesting code via email
-      app.ports.submitEmailAddress.subscribe((msg) => {
-        channel("/request-email", msg, (msg) =>
-          app.ports.confirmEmailSent.send(JSON.parse(msg))
-        );
-      });
-
-      // port for logging in with received code
-      const urlParams = new URLSearchParams(window.location.search);
-      const email = urlParams.get("email");
-      const user = urlParams.get("user");
-      const code = urlParams.get("code");
-      if (email && user && code) {
-        channel("/login", { email, user, code }, (msg) => {
-          const success = JSON.parse(msg);
-          app.ports.login.send([success, email, user, code]);
-        });
-      }
-
-      // websocket and port for updating displayed balance
-      channel("/balance", checkoutSessionId, (msg) =>
-        app.ports.balanceUpdate.send(parseInt(msg.data))
-      );
-      if (urlParams.get("checkout") === "") getBalance();
+      // // websocket and port for updating displayed balance
+      // channel("/balance", checkoutSessionId, (msg) =>
+      //   app.ports.balanceUpdate.send(parseInt(msg.data))
+      // );
+      // if (urlParams.get("checkout") === "") getBalance();
     </script>
   </body>
 </html>

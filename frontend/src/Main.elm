@@ -1,7 +1,8 @@
 port module Main exposing (..)
 
 import Browser
-import Dict exposing (Dict)
+import Config
+import Dict
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
@@ -40,17 +41,44 @@ main =
 
 init : Encode.Value -> ( Model, Cmd Msg )
 init flags =
-    ( Result.withDefault
-        (LoginPage
-            { email = ""
-            , emailStatus = NotRequested
-            }
-        )
-        (Decode.decodeValue decodePersistedModel flags)
-    , Cmd.none
+    let
+        ( model, userInfo ) =
+            Decode.decodeValue decodeFlags flags
+                |> Result.withDefault
+                    ( LoginPage
+                        { email = ""
+                        , emailStatus = NotRequested
+                        }
+                    , Nothing
+                    )
+    in
+    ( model
+    , login userInfo
       -- get balance if necessary
-      -- get payment link
     )
+
+
+login : Maybe UserInfo -> Cmd Msg
+login userInfo =
+    case userInfo of
+        Just info ->
+            Http.post
+                { url = Config.serverUrl ++ "/login"
+                , body =
+                    Http.jsonBody
+                        (Encode.object
+                            [ ( "email", Encode.string info.email )
+                            , ( "id", Encode.string info.id )
+                            , ( "code", Encode.string info.code )
+                            ]
+                        )
+                , expect =
+                    Http.expectJson (LoginConfirmed info >> LoginPageMsg)
+                        (Decode.field "balance" (Decode.maybe Decode.float))
+                }
+
+        Nothing ->
+            Cmd.none
 
 
 
@@ -66,7 +94,7 @@ type LoginPageMsg
     = EmailAddressTyped String
     | EmailAddressSubmitted
     | EmailAttempted (Result Http.Error Bool)
-    | LoginConfirmed ( Bool, UserInfo )
+    | LoginConfirmed UserInfo (Result Http.Error (Maybe Float))
 
 
 type MainPageMsg
@@ -78,7 +106,6 @@ type MainPageMsg
     | CtrlReleased
     | EnterPressed
     | ReceivedResponseChunk String
-    | ReceivedPaymentLink String
     | UpdatedBalance Float
     | LogoutRequested
 
@@ -106,7 +133,7 @@ updateLoginPage msg model =
             if isValidEmail model.email then
                 ( LoginPage { model | emailStatus = EmailSending }
                 , Http.post
-                    { url = "http://localhost:3000/request-email"
+                    { url = Config.serverUrl ++ "/request-email"
                     , body = Http.jsonBody (Encode.object [ ( "email", Encode.string model.email ) ])
                     , expect = Http.expectJson (LoginPageMsg << EmailAttempted) Decode.bool
                     }
@@ -124,23 +151,22 @@ updateLoginPage msg model =
                     ( LoginPage { model | emailStatus = EmailFailed }, Cmd.none )
 
         -- TODO
-        LoginConfirmed ( success, userInfo ) ->
-            if success then
-                ( MainPage
-                    { user = userInfo
-                    , messageThreads = Dict.empty
-                    , currentThread = 0
-                    , messageDraft = ""
-                    , ctrlPressed = False
-                    , paymentLink = Nothing
-                    }
-                , Cmd.none
-                  -- persistState (encodePersistedModel model.messageThreads newLoginStatus)
-                  -- TODO request payment link
-                )
+        LoginConfirmed userInfo result ->
+            case result of
+                Ok (Just balance) ->
+                    ( MainPage
+                        { user = { userInfo | balance = Just balance }
+                        , messageThreads = Dict.empty
+                        , currentThread = 0
+                        , messageDraft = ""
+                        , ctrlPressed = False
+                        }
+                    , Cmd.none
+                      -- persistState (encodePersistedModel model.messageThreads newLoginStatus)
+                    )
 
-            else
-                ( LoginPage { model | emailStatus = LoginFailed }, Cmd.none )
+                _ ->
+                    ( LoginPage { model | emailStatus = LoginFailed }, Cmd.none )
 
 
 updateMainPage : MainPageMsg -> MainPageModel -> ( Model, Cmd Msg )
@@ -213,15 +239,12 @@ updateMainPage msg model =
             , outgoingPersistedState (encodePersistedModel newModel)
             )
 
-        ReceivedPaymentLink link ->
-            ( MainPage { model | paymentLink = Just link }, Cmd.none )
-
         UpdatedBalance newBalance ->
             let
                 { user } =
                     model
             in
-            ( MainPage { model | user = { user | balance = newBalance } }, Cmd.none )
+            ( MainPage { model | user = { user | balance = Just newBalance } }, Cmd.none )
 
         LogoutRequested ->
             let
@@ -253,7 +276,7 @@ updateMessageSubmitted oldHistory model =
     in
     ( newModel
     , Cmd.batch
-        [ chatMessageToBackend (encodeChatMessages (List.reverse newHistory))
+        [ outgoingChatMessage (encodeChatMessages (List.reverse newHistory))
         , outgoingPersistedState (encodePersistedModel newModel)
         ]
     )
@@ -355,10 +378,16 @@ topBar model =
             { onPress = Just LogoutRequested
             , label = text "Log out"
             }
-        , el [ alignRight ] (text ("Balance: " ++ format usLocale model.user.balance))
-        , model.paymentLink
-            |> Maybe.map (paymentLinkButton model.user.email model.user.id)
-            |> Maybe.withDefault none
+        , el [ alignRight ]
+            (text
+                ("Balance: "
+                    ++ (model.user.balance
+                            |> Maybe.map (format usLocale)
+                            |> Maybe.withDefault "Loading ..."
+                       )
+                )
+            )
+        , paymentLinkButton model.user.email model.user.id Config.paymentLink
         ]
 
 
@@ -463,7 +492,7 @@ messageList model =
                                     , smartypants = True
                                     }
                                     []
-                                    message.content
+                                    (String.trim message.content)
                                 )
                             )
                         ]
@@ -526,15 +555,15 @@ inverseColors =
 -- PORTS
 
 
-port chatMessageChunkFromBackend : (String -> msg) -> Sub msg
+port incomingChatMessageChunk : (String -> msg) -> Sub msg
 
 
-port chatMessageToBackend : Encode.Value -> Cmd msg
+port outgoingChatMessage : Encode.Value -> Cmd msg
 
 
 port outgoingPersistedState : Encode.Value -> Cmd msg
 
 
 subscriptions : Model -> Sub Msg
-subscriptions model =
-    Sub.batch [ chatMessageChunkFromBackend (ReceivedResponseChunk >> MainPageMsg) ]
+subscriptions _ =
+    Sub.batch [ incomingChatMessageChunk (ReceivedResponseChunk >> MainPageMsg) ]

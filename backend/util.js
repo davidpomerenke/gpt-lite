@@ -18,9 +18,11 @@ const makeHttpRoute = (route, reply) => {
 };
 
 const accountPath = (user, fn) => {
-  folder = "accounts/" + user;
+  folder = "backend/accounts/" + user;
   fs.mkdirSync(folder, { recursive: true });
-  return folder + "/" + fn;
+  const path = folder + "/" + fn;
+  fs.closeSync(fs.openSync(path, "a"));
+  return path;
 };
 
 const hash = (s) => createHash("sha256").update(s).digest("hex");

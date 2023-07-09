@@ -3,7 +3,9 @@ module Types exposing (..)
 import Dict exposing (Dict)
 import Dict.Extra as Dict
 import Json.Decode as Decode
+import Json.Decode.Extra as Decode
 import Json.Encode as Encode
+import Json.Encode.Extra as Encode
 import String
 
 
@@ -37,7 +39,6 @@ type alias MainPageModel =
     , currentThread : ThreadId
     , messageDraft : String
     , ctrlPressed : Bool
-    , paymentLink : Maybe String
     }
 
 
@@ -45,7 +46,7 @@ type alias UserInfo =
     { email : String
     , id : String
     , code : String
-    , balance : Float
+    , balance : Maybe Float
     }
 
 
@@ -92,7 +93,7 @@ encodeUser user =
         [ ( "email", Encode.string user.email )
         , ( "id", Encode.string user.id )
         , ( "code", Encode.string user.code )
-        , ( "balance", Encode.float user.balance )
+        , ( "balance", Encode.maybe Encode.float user.balance )
         ]
 
 
@@ -133,6 +134,14 @@ encodeRole role =
 
 
 -- DECODERS
+-- decode { state, user } JSON object where user may be the UserInfo or null
+
+
+decodeFlags : Decode.Decoder ( Model, Maybe UserInfo )
+decodeFlags =
+    Decode.map2 Tuple.pair
+        (Decode.field "state" decodePersistedModel)
+        (Decode.field "user" (Decode.maybe decodeUser))
 
 
 decodePersistedModel : Decode.Decoder Model
@@ -153,7 +162,6 @@ decodePersistedModel =
                                     , currentThread = currentThread
                                     , messageDraft = ""
                                     , ctrlPressed = False
-                                    , paymentLink = Nothing
                                     }
                             )
                             (Decode.field "user" decodeUser)
@@ -171,7 +179,7 @@ decodeUser =
         (Decode.field "email" Decode.string)
         (Decode.field "id" Decode.string)
         (Decode.field "code" Decode.string)
-        (Decode.field "balance" Decode.float)
+        (Decode.field "balance" (Decode.maybe Decode.float))
 
 
 decodeMessageThreads : Decode.Decoder (Dict ThreadId (List ChatMessage))
