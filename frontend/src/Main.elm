@@ -375,6 +375,7 @@ topBar model =
             (text
                 ("Balance: "
                     ++ (model.user.balance
+                            |> Maybe.map (\a -> a - costs model)
                             |> Maybe.map (format usLocale)
                             |> Maybe.withDefault "Loading ..."
                        )
@@ -382,6 +383,51 @@ topBar model =
             )
         , paymentLinkButton model.user.email model.user.id Config.paymentLink
         ]
+
+
+costs : MainPageModel -> Float
+costs model =
+    let
+        chatMessages =
+            Dict.values model.messageThreads |> List.concat |> List.map .content
+
+        lengthList =
+            chatMessages |> List.map (String.words >> List.length)
+
+        nWordsInput =
+            (0 :: lengthList) |> List.groupsOf 2 |> List.map List.sum |> List.scanl (+) 0 |> List.sum
+
+        nWordsOutput =
+            lengthList |> List.groupsOf 2 |> List.map second |> List.sum
+
+        nTokens nWords_ =
+            4 / 3 * toFloat nWords_
+
+        ( inGPT4, outGPT4 ) =
+            ( 0.03 / 1000, 0.06 / 1000 )
+
+        ( inGPT35, outGPT35 ) =
+            ( 0.0015 / 1000, 0.002 / 1000 )
+
+        price =
+            inGPT4 * nTokens nWordsInput + outGPT4 * nTokens nWordsOutput
+    in
+    1.5 * price
+
+
+dropLast : List a -> List a
+dropLast list =
+    List.take (List.length list - 1) list
+
+
+second : List number -> number
+second list =
+    case list of
+        _ :: x :: _ ->
+            x
+
+        _ ->
+            0
 
 
 paymentLinkButton email user url =
