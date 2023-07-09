@@ -153,15 +153,18 @@ updateLoginPage msg model =
         LoginConfirmed userInfo result ->
             case result of
                 Ok (Just balance) ->
-                    ( MainPage
-                        { user = { userInfo | balance = Just balance }
-                        , messageThreads = Dict.empty
-                        , currentThread = 0
-                        , messageDraft = ""
-                        , ctrlPressed = False
-                        }
-                    , Cmd.none
-                      -- persistState (encodePersistedModel model.messageThreads newLoginStatus)
+                    let
+                        newModel =
+                            MainPage
+                                { user = { userInfo | balance = Just balance }
+                                , messageThreads = Dict.empty
+                                , currentThread = 0
+                                , messageDraft = ""
+                                , ctrlPressed = False
+                                }
+                    in
+                    ( newModel
+                    , outgoingPersistedState (encodePersistedModel newModel)
                     )
 
                 _ ->

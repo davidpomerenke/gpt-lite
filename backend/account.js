@@ -62,7 +62,7 @@ const sendEmail = async (baseUrl, emailAddress, id, code) => {
   try {
     await transporter.sendMail(mail);
   } catch (err) {
-    console.log(err.message);
+    console.warn(err);
     return false;
   }
   return true;
