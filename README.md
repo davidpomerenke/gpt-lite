@@ -1,5 +1,7 @@
 # GPT Lite, An Alternative ChatGPT UI
 
+[__➡️ Go directly to the app__](https://cheapgpt.davids.garden/)
+
 The GPT4 API is much cheaper than the ChatGPT subscription. This project provides a minimal UI to mimic the basic features of the ChatGPT subscription.
 
 This can save you 240 USD per year, or give you 0.75-2.5 days of additional free time per year.[^1]
@@ -16,25 +18,6 @@ This can save you 240 USD per year, or give you 0.75-2.5 days of additional free
 <div align="center">
 <img width="70%" src="screenshot.png" />
 </div>
-
-## Usage
-
-1. Create a `.env` file and define your OpenAI API key: `OPENAI_API_KEY=sk-...`
-2. `npm install`
-3. `npm start`
-
-## Development
-
-Backend and frontend should be run in separate processes, so that both can be hot-reloaded:
-
-- `npm run dev-backend`
-- `npm run dev-frontend`
-
-For processing payments with Stripe (optional):
-
-- Using the Stripe dashboard, create a payment link that redirects to the site with `...?top-up=completed`. Store the link in `frontend/static/links.json` in the format `{"paymentLink: "https://buy.stripe.com/..."}`.
-- Using the Stripe dashboard, create a webhook for the `checkout.session.completed` event, point it to the site at `.../top-up`. Store the Stripe endpoint secret in `.env`: `STRIPE_ENDPOINT_SECRET=whsec_...`
-- Test versions can be created for both of these by activating "Test mode" in the Stripe dashboard.
 
 ## License
 
