@@ -31,12 +31,5 @@ const getPayments = async (id) => {
     .map((a) => a.amount_total / 100)
     .reduce((a, b) => a + b, 0);
 };
-// main = async () => {
-//   console.log(
-//     await getPayments(
-//       "86702c8518eb2ecca40c0342049d08b6ebabda65853260d0795ab138c53eeb50"
-//     )
-//   );
-// };
-// main();
+
 module.exports = { moneyRoutes, updateAndGetBalance };

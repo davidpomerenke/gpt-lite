@@ -53,32 +53,35 @@ init flags =
                     )
     in
     ( model
-    , login userInfo
-      -- get balance if necessary
+    , case ( model, userInfo ) of
+        ( LoginPage _, Just info ) ->
+            loginAndGetBalance (LoginConfirmed info >> LoginPageMsg) info
+
+        ( MainPage { user }, _ ) ->
+            loginAndGetBalance (UpdatedBalance >> MainPageMsg) user
+
+        _ ->
+            Cmd.none
     )
 
 
-login : Maybe UserInfo -> Cmd Msg
-login userInfo =
-    case userInfo of
-        Just info ->
-            Http.post
-                { url = Config.serverUrl ++ "/login"
-                , body =
-                    Http.jsonBody
-                        (Encode.object
-                            [ ( "email", Encode.string info.email )
-                            , ( "id", Encode.string info.id )
-                            , ( "code", Encode.string info.code )
-                            ]
-                        )
-                , expect =
-                    Http.expectJson (LoginConfirmed info >> LoginPageMsg)
-                        (Decode.field "balance" (Decode.maybe Decode.float))
-                }
+loginAndGetBalance : (Result Http.Error (Maybe Float) -> Msg) -> UserInfo -> Cmd Msg
+loginAndGetBalance msg info =
+    Http.post
+        { url = Config.serverUrl ++ "/login"
+        , body =
+            Http.jsonBody
+                (Encode.object
+                    [ ( "email", Encode.string info.email )
+                    , ( "id", Encode.string info.id )
+                    , ( "code", Encode.string info.code )
+                    ]
+                )
 
-        Nothing ->
-            Cmd.none
+        -- the endpoint will return `null` if the login fails,
+        -- otherwise the balance
+        , expect = Http.expectJson msg (Decode.field "balance" (Decode.maybe Decode.float))
+        }
 
 
 
@@ -106,7 +109,7 @@ type MainPageMsg
     | CtrlReleased
     | EnterPressed
     | ReceivedResponseChunk String
-    | UpdatedBalance Float
+    | UpdatedBalance (Result Http.Error (Maybe Float))
     | LogoutRequested
 
 
@@ -246,7 +249,12 @@ updateMainPage msg model =
                 { user } =
                     model
             in
-            ( MainPage { model | user = { user | balance = Just newBalance } }, Cmd.none )
+            case newBalance of
+                Ok (Just balance) ->
+                    ( MainPage { model | user = { user | balance = Just balance } }, Cmd.none )
+
+                _ ->
+                    ( MainPage { model | user = { user | balance = Nothing } }, Cmd.none )
 
         LogoutRequested ->
             let
