@@ -559,6 +559,19 @@ messageList model =
 
 
 promptInput model =
+    case model.user.balance of
+        Just x ->
+            if x - costs model < -0.1 then
+                text "You don't have enough funds to send messages. Please add funds to your account."
+
+            else
+                promptInput_ model
+
+        Nothing ->
+            text "Loading ..."
+
+
+promptInput_ model =
     Input.multiline
         ([ Input.focusedOnLoad
          , htmlAttribute
