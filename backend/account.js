@@ -15,10 +15,16 @@ const emailRequestRoute = makeHttpRoute("/request-email", async (msg) => {
 
 const loginRoute = makeHttpRoute("/login", async (msg) => {
   const { email, id, code } = msg;
-  if (hash(email) !== id) return { balance: null };
+  if (hash(email) !== id) {
+    console.warn(`Hash mismatch: ${email} ${id}`);
+    return { balance: null };
+  }
   const correctCode = fs.readFileSync(accountPath(email, "code.txt"), "utf8");
   if (code === correctCode) return { balance: await updateAndGetBalance(id) };
-  else return { balance: null };
+  else {
+    console.warn(`Code mismatch: ${email} ${code}`);
+    return { balance: null };
+  }
 });
 
 const accountRoutes = (app) => {
