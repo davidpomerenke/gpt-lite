@@ -575,6 +575,7 @@ promptInput model =
 promptInput_ model =
     Input.multiline
         ([ Input.focusedOnLoad
+         , width (fill |> maximum 800)
          , htmlAttribute
             (Keyboard.on Keyboard.Keydown
                 [ ( Control, CtrlPressed )
@@ -594,7 +595,9 @@ promptInput_ model =
         { onChange = MessageTyped
         , text = model.messageDraft
         , placeholder = Nothing
-        , label = Input.labelRight [] (Input.button borderStyle { onPress = Just MessageSubmitted, label = text "Send" })
+        , label =
+            Input.labelBelow [ alignRight ]
+                (Input.button borderStyle { onPress = Just MessageSubmitted, label = text "Send" })
         , spellcheck = False
         }
 
