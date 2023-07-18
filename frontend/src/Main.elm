@@ -356,9 +356,9 @@ mainPage model =
     column
         [ height fill, width fill, spacing 10 ]
         [ topBar model
-        , row [ height fill, width fill, centerX, padding 10, spacing 50 ]
+        , row [ height fill, width fill, padding 10, spacing 50 ]
             [ column [ width (fill |> maximum 200), spacing 5, alignTop ] (newThreadButton model :: threadList model)
-            , column [ width (fill |> maximum 800), height fill, spacing 10 ]
+            , column [ width (fill |> maximum 800), height fill, centerX, spacing 10 ]
                 [ column [ width fill, height fill, spacing 10 ] (messageList model)
                 , promptInput model
                 ]
