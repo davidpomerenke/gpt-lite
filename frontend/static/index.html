@@ -42,12 +42,9 @@
       let user = null;
       const urlParams = new URLSearchParams(window.location.search);
       const email = urlParams.get("email");
-      const id = urlParams.get("id");
       const code = urlParams.get("code");
-      if (email && id && code)
-        user = { email: email, id: id, code: code, balance: null };
+      if (email && code) user = { email: email, code: code, balance: null };
       urlParams.delete("email");
-      urlParams.delete("id");
       urlParams.delete("code");
       window.history.replaceState({}, "", window.location.pathname);
       console.log({ state, user });

@@ -44,7 +44,6 @@ type alias MainPageModel =
 
 type alias UserInfo =
     { email : String
-    , id : String
     , code : String
     , balance : Maybe Float
     }
@@ -91,7 +90,6 @@ encodeUser : UserInfo -> Encode.Value
 encodeUser user =
     Encode.object
         [ ( "email", Encode.string user.email )
-        , ( "id", Encode.string user.id )
         , ( "code", Encode.string user.code )
         , ( "balance", Encode.maybe Encode.float user.balance )
         ]
@@ -175,9 +173,8 @@ decodePersistedModel =
 
 decodeUser : Decode.Decoder UserInfo
 decodeUser =
-    Decode.map4 UserInfo
+    Decode.map3 UserInfo
         (Decode.field "email" Decode.string)
-        (Decode.field "id" Decode.string)
         (Decode.field "code" Decode.string)
         (Decode.field "balance" (Decode.maybe Decode.float))
 

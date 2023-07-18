@@ -1,8 +1,22 @@
 fs = require("fs");
 path = require("path");
-const { get } = require("http");
 const { makeHttpRoute, accountPath } = require("./util");
 const stripe = require("stripe")(process.env.STRIPE_API_KEY);
+
+const endpointSecret = process.env.STRIPE_ENDPOINT_SECRET;
+
+const stripeEndpointRoute = makeHttpRoute("/stripe", (msg, req) => {
+  const sig = req.headers["stripe-signature"];
+  let event;
+  event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+  if (event.type === "checkout.session.completed") {
+    const data = event.data.object;
+    const amount = data.amount_subtotal / 100;
+    console.log(data.client_reference_id, amount);
+    updateAndGetBalance(data.client_reference_id, amount);
+  }
+  return; // Return a 200 response to acknowledge receipt of the event
+});
 
 const balanceRoute = makeHttpRoute("/balance", (msg) => {
   return updateAndGetBalance(msg.user);
@@ -19,17 +33,11 @@ const updateAndGetBalance = async (user, change = 0) => {
     .readFileSync(fn, "utf8")
     .split("\n")
     .map((s) => Number(s));
-  let balance = changes.reduce((a, b) => a + b, 0);
-  balance += await getPayments(user);
-  return balance;
+  return changes.reduce((a, b) => a + b, 0);
 };
 
-const getPayments = async (id) => {
-  const sessions = await stripe.checkout.sessions.list();
-  return sessions.data
-    .filter((a) => a.client_reference_id === id)
-    .map((a) => a.amount_total / 100)
-    .reduce((a, b) => a + b, 0);
+module.exports = {
+  moneyRoutes,
+  stripeEndpointRoute,
+  updateAndGetBalance,
 };
-
-module.exports = { moneyRoutes, updateAndGetBalance };

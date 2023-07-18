@@ -21,6 +21,7 @@ import List
 import List.Extra as List
 import Markdown
 import Platform.Cmd as Cmd
+import Sha256 exposing (sha256)
 import Types exposing (..)
 import Validate exposing (isValidEmail)
 
@@ -73,7 +74,6 @@ loginAndGetBalance msg info =
             Http.jsonBody
                 (Encode.object
                     [ ( "email", Encode.string info.email )
-                    , ( "id", Encode.string info.id )
                     , ( "code", Encode.string info.code )
                     ]
                 )
@@ -378,10 +378,11 @@ topBar model =
         , spacing 10
         ]
         [ el [ alignLeft ] (text ("Logged in as " ++ model.user.email))
-        , Input.button borderStyle
-            { onPress = Just LogoutRequested
-            , label = text "Log out"
-            }
+
+        -- , Input.button borderStyle
+        --     { onPress = Just LogoutRequested
+        --     , label = text "Log out"
+        --     }
         , el [ alignRight ]
             (text
                 ("Balance: "
@@ -392,7 +393,7 @@ topBar model =
                        )
                 )
             )
-        , paymentLinkButton model.user.email model.user.id Config.paymentLink
+        , paymentLinkButton model.user.email Config.paymentLink
         ]
 
 
@@ -441,9 +442,9 @@ second list =
             0
 
 
-paymentLinkButton email user url =
+paymentLinkButton email url =
     link [ Background.color (rgb 0 0 0), Font.color (rgb 255 255 255), padding 5 ]
-        { url = url ++ "?prefilled_email=" ++ email ++ "&client_reference_id=" ++ user
+        { url = url ++ "?prefilled_email=" ++ email ++ "&client_reference_id=" ++ sha256 email
         , label = text "+ Add funds"
         }
 

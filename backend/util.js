@@ -5,14 +5,18 @@ require("dotenv").config({ path: path.resolve(__dirname, "./../.env") });
 const makeHttpRoute = (route, reply) => {
   const routeFn = (app) => {
     console.log("listening on", route);
-    app.post(route, async (req, res) => {
-      try {
-        res.send(await reply(req.body));
-      } catch (err) {
-        console.warn(err);
-        res.status(400).send();
+    app.post(
+      route,
+      express.raw({ type: "application/json" }),
+      async (req, res) => {
+        try {
+          res.send(await reply(req.body, req, res));
+        } catch (err) {
+          console.warn(err);
+          res.status(400).send();
+        }
       }
-    });
+    );
   };
   return routeFn;
 };

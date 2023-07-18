@@ -3,10 +3,11 @@ var app = express();
 var expressWs = require("express-ws")(app);
 const cors = require("cors");
 const { accountRoutes } = require("./account");
-const { moneyRoutes } = require("./money");
+const { stripeEndpointRoute, moneyRoutes } = require("./money");
 const { aiRoutes } = require("./ai");
 
 app.use(cors());
+stripeEndpointRoute(app); // does not use json middleware
 app.use(express.json());
 app.use(express.static("frontend/static"));
 

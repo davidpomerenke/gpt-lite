@@ -8,18 +8,15 @@ const emailRequestRoute = makeHttpRoute("/request-email", async (msg) => {
   const baseUrl = process.env.BASE_URL;
   const emailAddress = msg.email;
   const userId = hash(emailAddress);
-  const code = generateAndSaveCode(emailAddress);
-  const success = await sendEmail(baseUrl, emailAddress, userId, code);
+  const code = generateAndSaveCode(userId);
+  const success = await sendEmail(baseUrl, emailAddress, code);
   return success;
 });
 
 const loginRoute = makeHttpRoute("/login", async (msg) => {
-  const { email, id, code } = msg;
-  if (hash(email) !== id) {
-    console.warn(`Hash mismatch: ${email} ${id}`);
-    return { balance: null };
-  }
-  const correctCode = fs.readFileSync(accountPath(email, "code.txt"), "utf8");
+  const { email, code } = msg;
+  const id = hash(email);
+  const correctCode = fs.readFileSync(accountPath(id, "code.txt"), "utf8");
   if (code === correctCode) return { balance: await updateAndGetBalance(id) };
   else {
     console.warn(`Code mismatch: ${email} ${code}`);
@@ -32,13 +29,13 @@ const accountRoutes = (app) => {
   loginRoute(app);
 };
 
-const generateAndSaveCode = (email) => {
+const generateAndSaveCode = (id) => {
   const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
   let code = "";
-  for (let i = 0; i < 32; i++) {
+  for (let i = 0; i < 20; i++) {
     code += chars[Math.floor(Math.random() * chars.length)];
   }
-  fs.writeFile(accountPath(email, "code.txt"), code, (err) => {
+  fs.writeFile(accountPath(id, "code.txt"), code, (err) => {
     if (err) throw err;
   });
   return code;
@@ -54,8 +51,8 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-const sendEmail = async (baseUrl, emailAddress, id, code) => {
-  const url = `${baseUrl}?email=${emailAddress}&id=${id}&code=${code}`;
+const sendEmail = async (baseUrl, emailAddress, code) => {
+  const url = `${baseUrl}?email=${emailAddress}&code=${code}`;
   const text = `Copy ${url} into your browser to login.`;
   const html = `<p>Go to <a href="${url}">${url}</a> to login.</p>`;
   const mail = {
