@@ -1,3 +1,5 @@
+Archived; I recommend using [ChatGPT Next Web](https://github.com/Yidadaa/ChatGPT-Next-Web) instead.
+
 # GPT Lite, An Alternative ChatGPT UI
 
 [__➡️ Go directly to the app__](https://cheapgpt.davids.garden/)
