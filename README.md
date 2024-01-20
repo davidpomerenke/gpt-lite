@@ -1,4 +1,4 @@
-Archived; I recommend using [ChatGPT Next Web](https://github.com/Yidadaa/ChatGPT-Next-Web) instead.
+No longer maintained (but might still work); I recommend using [Jan](https://github.com/janhq/jan) instead.
 
 # GPT Lite, An Alternative ChatGPT UI
 
